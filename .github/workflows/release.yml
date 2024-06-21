@@ -1,6 +1,12 @@
 name: Release Creation
 
 on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Release Version'
+        required: true
+        type: string
   push:
     tags:
       - 'release-*'
