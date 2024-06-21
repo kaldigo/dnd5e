@@ -3024,6 +3024,16 @@ preLocalize("traitModes", { keys: ["label", "hint"] });
 /* -------------------------------------------- */
 
 /**
+ * Item Types used within an ASI.
+ * @enum {object}
+ */
+DND5E.asiFeatTypes = [
+  "feat"
+];
+
+/* -------------------------------------------- */
+
+/**
  * Special character flags.
  * @enum {CharacterFlagConfig}
  */
