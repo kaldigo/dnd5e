@@ -46,7 +46,8 @@ export default class FeatData extends ItemDataModel.mixin(
           required: true, integer: true, min: 1, label: "DND5E.FeatureRechargeOn"
         }),
         charged: new BooleanField({required: true, label: "DND5E.Charged"})
-      }, {label: "DND5E.FeatureActionRecharge"})
+      }, {label: "DND5E.FeatureActionRecharge"}),
+      advancement: new ArrayField(new AdvancementField(), {label: "DND5E.AdvancementTitle"})
     });
   }
 

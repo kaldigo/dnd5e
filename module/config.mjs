@@ -3034,6 +3034,20 @@ DND5E.asiFeatTypes = [
 /* -------------------------------------------- */
 
 /**
+ * Item Types used for advancement.
+ * @enum {object}
+ */
+DND5E.advancementItemTypes = [
+  "background", 
+  "class", 
+  "race", 
+  "subclass", 
+  "feat"
+];
+
+/* -------------------------------------------- */
+
+/**
  * Special character flags.
  * @enum {CharacterFlagConfig}
  */
@@ -3160,7 +3174,7 @@ preLocalize("groupTypes");
  * @property {boolean} [hidden]                  Should this advancement type be hidden in the selection dialog?
  */
 
-const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass"];
+const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass", "feat"];
 
 /**
  * Advancement types that can be added to items.
@@ -3169,7 +3183,7 @@ const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass"];
 DND5E.advancementTypes = {
   AbilityScoreImprovement: {
     documentClass: advancement.AbilityScoreImprovementAdvancement,
-    validItemTypes: new Set(["background", "class", "race"])
+    validItemTypes: new Set(["background", "class", "race", "feat"])
   },
   HitPoints: {
     documentClass: advancement.HitPointsAdvancement,
