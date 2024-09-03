@@ -3301,6 +3301,16 @@ preLocalize("traitModes", { keys: ["label", "hint"] });
 /* -------------------------------------------- */
 
 /**
+ * Item Types used within an ASI.
+ * @type {string[]}
+ */
+DND5E.asiFeatTypes = [
+  "feat"
+];
+
+/* -------------------------------------------- */
+
+/**
  * @typedef {object} CharacterFlagConfig
  * @property {string} name
  * @property {string} hint
@@ -3481,7 +3491,7 @@ DND5E.activityTypes = {
  * @property {boolean} [hidden]                  Should this advancement type be hidden in the selection dialog?
  */
 
-const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass"];
+const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass", "feat"];
 
 /**
  * Advancement types that can be added to items.
@@ -3490,7 +3500,7 @@ const _ALL_ITEM_TYPES = ["background", "class", "race", "subclass"];
 DND5E.advancementTypes = {
   AbilityScoreImprovement: {
     documentClass: advancement.AbilityScoreImprovementAdvancement,
-    validItemTypes: new Set(["background", "class", "race"])
+    validItemTypes: new Set(["background", "class", "race", "feat"])
   },
   HitPoints: {
     documentClass: advancement.HitPointsAdvancement,
