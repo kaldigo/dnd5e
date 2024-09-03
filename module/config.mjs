@@ -3301,6 +3301,20 @@ preLocalize("traitModes", { keys: ["label", "hint"] });
 /* -------------------------------------------- */
 
 /**
+ * Item Types used for advancement.
+ * @type {string[]}
+ */
+DND5E.advancementItemTypes = [
+  "background", 
+  "class", 
+  "race", 
+  "subclass", 
+  "feat"
+];
+
+/* -------------------------------------------- */
+
+/**
  * Item Types used within an ASI.
  * @type {string[]}
  */

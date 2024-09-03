@@ -83,7 +83,7 @@ export default class Advancement extends BaseAdvancement {
       title: game.i18n.localize("DND5E.AdvancementTitle"),
       hint: "",
       multiLevel: false,
-      validItemTypes: new Set(["background", "class", "race", "subclass"]),
+      validItemTypes: new Set(CONFIG.DND5E.advancementItemTypes),
       apps: {
         config: AdvancementConfig,
         flow: AdvancementFlow

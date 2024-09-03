@@ -4,8 +4,9 @@ import ItemDescriptionTemplate from "./templates/item-description.mjs";
 import ItemTypeTemplate from "./templates/item-type.mjs";
 import ItemTypeField from "./fields/item-type-field.mjs";
 import { FormulaField } from "../fields/_module.mjs";
+import AdvancementField from "../fields/advancement-field.mjs";
 
-const { NumberField, SchemaField, SetField, StringField } = foundry.data.fields;
+const { ArrayField, NumberField, SchemaField, SetField, StringField } = foundry.data.fields;
 
 /**
  * Data definition for Feature items.
@@ -42,7 +43,8 @@ export default class FeatData extends ItemDataModel.mixin(
       properties: new SetField(new StringField(), {
         label: "DND5E.ItemFeatureProperties"
       }),
-      requirements: new StringField({required: true, nullable: true, label: "DND5E.Requirements"})
+      requirements: new StringField({required: true, nullable: true, label: "DND5E.Requirements"}),
+      advancement: new ArrayField(new AdvancementField(), { label: "DND5E.AdvancementTitle" })
     });
   }
 
