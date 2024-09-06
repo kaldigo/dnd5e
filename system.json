@@ -112,7 +112,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["character"]
+          "types": []
         }
       }
     },
@@ -125,7 +125,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["npc"]
+          "types": []
         }
       }
     },
@@ -138,7 +138,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["weapon", "equipment", "consumable", "tool", "loot", "feat", "container"]
+          "types": []
         }
       }
     },
@@ -151,7 +151,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["loot"]
+          "types": []
         }
       }
     },
@@ -164,7 +164,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["spell"]
+          "types": []
         }
       }
     },
@@ -177,7 +177,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["background", "feat"]
+          "types": []
         }
       }
     },
@@ -190,7 +190,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["class"]
+          "types": []
         }
       }
     },
@@ -203,7 +203,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["subclass"]
+          "types": []
         }
       }
     },
@@ -216,7 +216,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["feat", "weapon"]
+          "types": []
         }
       }
     },
@@ -229,7 +229,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["race", "feat"]
+          "types": []
         }
       }
     },
@@ -242,7 +242,7 @@
       "private": false,
       "flags": {
         "dnd5e": {
-          "types": ["feat", "weapon"]
+          "types": []
         }
       }
     },
@@ -254,7 +254,10 @@
       "type": "JournalEntry",
       "private": false,
       "flags": {
-        "display": "table-of-contents"
+        "display": "table-of-contents",
+        "dnd5e": {
+          "types": []
+        }
       }
     },
     {
@@ -264,7 +267,11 @@
       "path": "packs/tables",
       "type": "RollTable",
       "private": false,
-      "flags": {}
+      "flags": {
+        "dnd5e": {
+          "types": []
+        }
+      }
     }
   ],
   "packFolders": [
@@ -344,16 +351,7 @@
       "sourceBooks": {
         "SRD 5.1": "SOURCE.BOOK.SRD"
       },
-      "spellLists": [
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.ziBzRlrpBm1KVV0j",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.cuG9d7J9fQH9InYT",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.MWiN7ILEO0Vd3zAZ",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.FhucONA0yRZQjMmb",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.sANq9JMycfSq3A5d",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.PVgly1xB2S2I8GLQ",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.mx4TsSbBIAaAkhQ7",
-        "Compendium.dnd5e.rules.JournalEntry.QvPDSUsAiEn3hD8s.JournalEntryPage.k7Rs5EyXeA0SFTXD"
-      ]
+      "spellLists": []
     },
     "needsMigrationVersion": "4.0.0",
     "compatibleMigrationVersion": "0.8",
