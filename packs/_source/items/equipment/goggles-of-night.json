@@ -2,7 +2,7 @@
   "_id": "XGAWqtmhK6SYBL6A",
   "name": "Goggles of Night",
   "type": "equipment",
-  "img": "icons/magic/control/hypnosis-mesmerism-eye.webp",
+  "img": "icons/equipment/head/goggles-leather-blue.webp",
   "system": {
     "description": {
       "value": "<p><em>Wondrous item</em></p>\n<p>While wearing these dark lenses, you have darkvision out to a range of 60 feet. If you already have darkvision, wearing the goggles increases its range by 60 feet.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -63,7 +64,8 @@
       "mgc"
     ],
     "activities": {},
-    "attuned": false
+    "attuned": false,
+    "identifier": "goggles-of-night"
   },
   "effects": [],
   "folder": "aJgMxnZED9XdoN2W",
@@ -78,7 +80,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.0.0",
     "createdTime": 1725037208677,
-    "modifiedTime": 1725037208677,
+    "modifiedTime": 1725992520283,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!XGAWqtmhK6SYBL6A"

@@ -1,7 +1,7 @@
 {
   "name": "Fine Clothes",
   "type": "equipment",
-  "img": "icons/equipment/back/cloak-heavy-fur-blue.webp",
+  "img": "icons/equipment/chest/robe-layered-white.webp",
   "system": {
     "description": {
       "value": "<p>Set of clothes designed specifically to be expensive and show it.</p>",
@@ -11,7 +11,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -125,7 +126,8 @@
         "sort": 0
       }
     },
-    "attuned": false
+    "attuned": false,
+    "identifier": "fine-clothes"
   },
   "effects": [],
   "folder": "Dx3K2y0J1wJUPP9m",
@@ -136,7 +138,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.0.0",
     "createdTime": 1725037145212,
-    "modifiedTime": 1725037145212,
+    "modifiedTime": 1725992498920,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_id": "FqFmdzIBUSxFKKfi",

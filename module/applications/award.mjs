@@ -57,8 +57,11 @@ export default class Award extends DialogMixin(FormApplication) {
     const context = super.getData(options);
 
     context.CONFIG = CONFIG.DND5E;
-    context.currency = Object.entries(CONFIG.DND5E.currencies).reduce((obj, [k, { label }]) => {
-      obj[k] = { label, value: this.options.currency ? this.options.currency[k] : this.object?.system.currency[k] };
+    context.currency = Object.entries(CONFIG.DND5E.currencies).reduce((obj, [k, { label, icon }]) => {
+      obj[k] = {
+        label, icon,
+        value: this.options.currency ? this.options.currency[k] : this.object?.system.currency[k]
+      };
       return obj;
     }, {});
     context.destinations = Award.prepareDestinations(this.transferDestinations, this.options.savedDestinations);
@@ -214,7 +217,8 @@ export default class Award extends DialogMixin(FormApplication) {
     destinations = destinations.filter(d => ["character", "group"].includes(d.type));
     if ( !amount || !destinations.length ) return;
 
-    let originUpdate = origin ? (origin.system.details.xp.value ?? 0) : Infinity;
+    const xp = origin?.system.details.xp;
+    let originUpdate = origin ? (xp.value ?? xp.derived ?? 0) : Infinity;
     if ( each ) amount = amount * destinations.length;
     const perDestination = Math.floor(Math.min(amount, originUpdate) / destinations.length);
     originUpdate -= amount;

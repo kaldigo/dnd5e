@@ -23,6 +23,16 @@ const { NumberField, SchemaField, SetField, StringField } = foundry.data.fields;
 export default class ContainerData extends ItemDataModel.mixin(
   ItemDescriptionTemplate, IdentifiableTemplate, PhysicalItemTemplate, EquippableItemTemplate, CurrencyTemplate
 ) {
+
+  /* -------------------------------------------- */
+  /*  Model Configuration                         */
+  /* -------------------------------------------- */
+
+  /** @override */
+  static LOCALIZATION_PREFIXES = ["DND5E.SOURCE"];
+
+  /* -------------------------------------------- */
+
   /** @inheritDoc */
   static defineSchema() {
     return this.mergeSchema(super.defineSchema(), {
@@ -97,6 +107,8 @@ export default class ContainerData extends ItemDataModel.mixin(
   prepareDerivedData() {
     super.prepareDerivedData();
     this.prepareDescriptionData();
+    this.prepareIdentifiable();
+    this.preparePhysicalData();
   }
 
   /* -------------------------------------------- */
@@ -272,12 +284,21 @@ export default class ContainerData extends ItemDataModel.mixin(
       context.value = await this.contentsCount;
       context.units = game.i18n.localize("DND5E.ItemContainerCapacityItems");
     }
+    context.value = context.value.toNearest(0.1);
     context.pct = Math.clamp(context.max ? (context.value / context.max) * 100 : 0, 0, 100);
     return context;
   }
 
   /* -------------------------------------------- */
   /*  Socket Event Handlers                       */
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _preUpdate(changed, options, user) {
+    if ( (await super._preUpdate(changed, options, user)) === false ) return false;
+    await this.preUpdateIdentifiable(changed, options, user);
+  }
+
   /* -------------------------------------------- */
 
   /** @inheritDoc */
@@ -291,5 +312,20 @@ export default class ContainerData extends ItemDataModel.mixin(
     }
 
     super._onUpdate(changed, options, userId);
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _onDelete(options, userId) {
+    super._onDelete(options, userId);
+    if ( (userId !== game.user.id) || !options.deleteContents ) return;
+
+    // Delete a container's contents when it is deleted
+    const contents = await this.allContainedItems;
+    if ( contents?.size ) await Item.deleteDocuments(Array.from(contents.map(i => i.id)), {
+      pack: this.parent.pack,
+      parent: this.parent.parent
+    });
   }
 }

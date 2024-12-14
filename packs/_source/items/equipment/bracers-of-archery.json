@@ -2,7 +2,7 @@
   "_id": "ZYEqOSY9BLZs2GPx",
   "name": "Bracers of Archery",
   "type": "equipment",
-  "img": "icons/equipment/wrist/bracer-studded-leather-steel.webp",
+  "img": "icons/equipment/wrist/bracer-banded-leather.webp",
   "system": {
     "description": {
       "value": "<p><em>Wondrous item, (requires attunement)</em></p>\n<p>While wearing these bracers, you have proficiency with the longbow and shortbow, and you gain a +2 bonus to damage rolls on ranged attacks made with such weapons.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -63,7 +64,8 @@
       "mgc"
     ],
     "activities": {},
-    "attuned": false
+    "attuned": false,
+    "identifier": "bracers-of-archery"
   },
   "effects": [
     {
@@ -128,7 +130,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.0.0",
     "createdTime": 1725037218257,
-    "modifiedTime": 1725037218257,
+    "modifiedTime": 1725992523461,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!ZYEqOSY9BLZs2GPx"

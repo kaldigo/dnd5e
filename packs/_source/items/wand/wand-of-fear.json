@@ -1,8 +1,8 @@
 {
   "_id": "EJFql4aNWHHJSxT9",
   "name": "Wand of Fear",
-  "type": "consumable",
-  "img": "icons/weapons/staves/staff-skull-brown.webp",
+  "type": "equipment",
+  "img": "icons/weapons/staves/staff-animal-skull-horned.webp",
   "system": {
     "description": {
       "value": "<p><em>(Requires attunement)</em></p>\n<p>This wand has 7 charges for the following properties. It regains 1d6 + 1 expended charges daily at dawn. If you expend the wand's last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed.</p>\n<p><strong>Command</strong>. While holding the wand, you can use an action to expend 1 charge and command another creature to flee or grovel, as with the @UUID[Compendium.dnd5e.spells.Item.arzCrMRgcNiQuh43]{Command} spell (save DC 15).</p>\n<p><strong>Cone of Fear</strong>. While holding the wand, you can use an action to expend 2 charges, causing the wand's tip to emit a 60-foot cone of amber light. Each creature in the cone must succeed on a DC 15 Wisdom saving throw or become frightened of you for 1 minute. While it is frightened in this way, a creature must spend its turns trying to move as far away from you as it can, and it can't willingly move to a space within 30 feet of you. It also can't take reactions. For its action, it can use only the Dash action or try to escape from an effect that prevents it from moving. If it has nowhere it can move, the creature can use the Dodge action. At the end of each of its turns, a creature can repeat the saving throw, ending the effect on itself on a success.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -62,6 +63,7 @@
     },
     "container": null,
     "properties": [
+      "foc",
       "mgc"
     ],
     "magicalBonus": null,
@@ -79,12 +81,9 @@
           "targets": [
             {
               "type": "itemUses",
+              "value": "2",
               "target": "",
-              "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
+              "scaling": {}
             }
           ],
           "scaling": {
@@ -98,15 +97,15 @@
         },
         "duration": {
           "concentration": false,
-          "value": "",
-          "units": "",
+          "value": "1",
+          "units": "minute",
           "special": "",
           "override": false
         },
         "effects": [],
         "range": {
-          "value": "60",
-          "units": "ft",
+          "value": "",
+          "units": "self",
           "special": "",
           "override": false
         },
@@ -122,7 +121,7 @@
           },
           "affects": {
             "count": "",
-            "type": "",
+            "type": "creature",
             "choice": false,
             "special": ""
           },
@@ -142,87 +141,84 @@
         },
         "uses": {
           "spent": 0,
-          "recovery": []
+          "recovery": [],
+          "max": ""
         },
-        "sort": 0
+        "sort": 300000,
+        "name": "Cone of Fear",
+        "img": "",
+        "appliedEffects": []
       },
-      "dnd5eactivity300": {
-        "_id": "dnd5eactivity300",
-        "type": "utility",
+      "J1oQUVbZNLMFnm4f": {
+        "type": "cast",
+        "spell": {
+          "uuid": "Compendium.dnd5e.spells.Item.arzCrMRgcNiQuh43",
+          "challenge": {
+            "attack": null,
+            "save": 15,
+            "override": true
+          },
+          "level": "1",
+          "properties": [
+            "vocal",
+            "somatic",
+            "material"
+          ],
+          "spellbook": true
+        },
+        "_id": "J1oQUVbZNLMFnm4f",
+        "sort": 200000,
         "activation": {
           "type": "action",
-          "value": 1,
-          "condition": "",
+          "value": null,
           "override": false
         },
         "consumption": {
+          "scaling": {
+            "allowed": false
+          },
+          "spellSlot": true,
           "targets": [
             {
-              "type": "itemUses",
-              "target": "",
+              "type": "activityUses",
               "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
+              "scaling": {}
             }
-          ],
-          "scaling": {
-            "allowed": false,
-            "max": ""
-          },
-          "spellSlot": true
+          ]
         },
         "description": {
           "chatFlavor": ""
         },
         "duration": {
+          "units": "inst",
           "concentration": false,
-          "value": "",
-          "units": "",
-          "special": "",
           "override": false
         },
-        "effects": [],
         "range": {
-          "value": "60",
-          "units": "ft",
-          "special": "",
           "override": false
         },
         "target": {
           "template": {
-            "count": "",
             "contiguous": false,
-            "type": "cone",
-            "size": "60",
-            "width": "",
-            "height": "",
             "units": "ft"
           },
           "affects": {
-            "count": "",
-            "type": "",
-            "choice": false,
-            "special": ""
+            "choice": false
           },
-          "prompt": true,
-          "override": false
-        },
-        "roll": {
-          "formula": "1d6 +1",
-          "name": "",
-          "prompt": false,
-          "visible": false
+          "override": false,
+          "prompt": true
         },
         "uses": {
           "spent": 0,
-          "recovery": []
+          "recovery": [],
+          "max": ""
         },
-        "sort": 0
+        "name": "",
+        "img": ""
       }
     },
-    "attuned": false
+    "attuned": false,
+    "identifier": "wand-of-fear"
   },
   "effects": [],
   "folder": "1aDgsGVwDbPdxG2V",
@@ -230,14 +226,21 @@
   "ownership": {
     "default": 0
   },
-  "flags": {},
+  "flags": {
+    "dnd5e": {
+      "riders": {
+        "activity": [],
+        "effect": []
+      }
+    }
+  },
   "_stats": {
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.0.0",
+    "systemVersion": "4.1.0",
     "createdTime": 1725037136851,
-    "modifiedTime": 1725037136851,
+    "modifiedTime": 1731015855536,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!EJFql4aNWHHJSxT9"

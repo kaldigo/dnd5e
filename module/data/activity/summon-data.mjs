@@ -34,6 +34,7 @@ const {
  * @property {Set<string>} creatureSizes    Set of creature sizes that will be set on summoned creature.
  * @property {Set<string>} creatureTypes    Set of creature types that will be set on summoned creature.
  * @property {object} match
+ * @property {string} match.ability         Ability to use for calculating match values.
  * @property {boolean} match.attacks        Match the to hit values on summoned actor's attack to the summoner.
  * @property {boolean} match.proficiency    Match proficiency on summoned actor to the summoner.
  * @property {boolean} match.saves          Match the save DC on summoned actor's abilities to the summoner.
@@ -46,10 +47,8 @@ const {
 export default class SummonActivityData extends BaseActivityData {
   /** @inheritDoc */
   static defineSchema() {
-    const fields = super.defineSchema();
-    delete fields.effects;
     return {
-      ...fields,
+      ...super.defineSchema(),
       bonuses: new SchemaField({
         ac: new FormulaField(),
         hd: new FormulaField(),
@@ -61,17 +60,18 @@ export default class SummonActivityData extends BaseActivityData {
       creatureSizes: new SetField(new StringField()),
       creatureTypes: new SetField(new StringField()),
       match: new SchemaField({
+        ability: new StringField(),
         attacks: new BooleanField(),
         proficiency: new BooleanField(),
         saves: new BooleanField()
       }),
       profiles: new ArrayField(new SchemaField({
-        _id: new DocumentIdField({initial: () => foundry.utils.randomID()}),
+        _id: new DocumentIdField({ initial: () => foundry.utils.randomID() }),
         count: new FormulaField(),
-        cr: new FormulaField({deterministic: true}),
+        cr: new FormulaField({ deterministic: true }),
         level: new SchemaField({
-          min: new NumberField({integer: true, min: 0}),
-          max: new NumberField({integer: true, min: 0})
+          min: new NumberField({ integer: true, min: 0 }),
+          max: new NumberField({ integer: true, min: 0 })
         }),
         name: new StringField(),
         types: new SetField(new StringField()),
@@ -89,9 +89,23 @@ export default class SummonActivityData extends BaseActivityData {
   /*  Properties                                  */
   /* -------------------------------------------- */
 
+  /** @inheritDoc */
+  get ability() {
+    return this.match.ability || super.ability;
+  }
+
+  /* -------------------------------------------- */
+
   /** @override */
   get actionType() {
     return "summ";
+  }
+
+  /* -------------------------------------------- */
+
+  /** @override */
+  get applicableEffects() {
+    return null;
   }
 
   /* -------------------------------------------- */
@@ -113,7 +127,7 @@ export default class SummonActivityData extends BaseActivityData {
    * @type {number}
    */
   get relevantLevel() {
-    const keyPath = this.item.type === "spell" ? "item.level"
+    const keyPath = (this.item.type === "spell") && (this.item.system.level > 0) ? "item.level"
       : this.summon.identifier ? `classes.${this.summon.identifier}.levels` : "details.level";
     return foundry.utils.getProperty(this.getRollData(), keyPath) ?? 0;
   }
@@ -140,7 +154,10 @@ export default class SummonActivityData extends BaseActivityData {
       bonuses: source.system.summons?.bonuses ?? {},
       creatureSizes: source.system.summons?.creatureSizes ?? [],
       creatureTypes: source.system.summons?.creatureTypes ?? [],
-      match: source.system.summons?.match ?? {},
+      match: {
+        ...(source.system.summons?.match ?? {}),
+        ability: source.system.ability
+      },
       profiles: source.system.summons?.profiles ?? [],
       summon: {
         identifier: source.system.summons?.classIdentifier ?? "",

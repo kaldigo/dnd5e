@@ -2,7 +2,7 @@
   "_id": "ZgXJE9pjvZLMCeHg",
   "name": "Slippers of Spider Climbing",
   "type": "equipment",
-  "img": "icons/commodities/materials/material-webbing.webp",
+  "img": "icons/equipment/feet/shoes-rounded-pink.webp",
   "system": {
     "description": {
       "value": "<p><em>Wondrous item, (requires attunement)</em></p>\n<p>While you wear these light shoes, you can move up, down, and across vertical surfaces and upside down along ceilings, while leaving your hands free. You have a climbing speed equal to your walking speed. However, the slippers don't allow you to move this way on a slippery surface, such as one covered by ice or oil.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -128,7 +129,8 @@
         "sort": 0
       }
     },
-    "attuned": false
+    "attuned": false,
+    "identifier": "slippers-of-spider-climbing"
   },
   "effects": [],
   "folder": "aJgMxnZED9XdoN2W",
@@ -143,7 +145,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.0.0",
     "createdTime": 1725037219501,
-    "modifiedTime": 1725037219501,
+    "modifiedTime": 1725992523879,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!ZgXJE9pjvZLMCeHg"

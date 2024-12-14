@@ -2,7 +2,7 @@
   "_id": "J8gQdJJi5e8LmD7H",
   "name": "Rope of Entanglement",
   "type": "consumable",
-  "img": "icons/magic/nature/root-vine-thorned-coil-green.webp",
+  "img": "icons/sundries/survival/rope-wrapped-purple.webp",
   "system": {
     "description": {
       "value": "<p><em>Wondrous item</em></p>\n<p>This rope is 30 feet long and weighs 3 pounds. If you hold one end of the rope and use an action to speak its command word, the other end darts forward to entangle a creature you can see within 20 feet of you. The target must succeed on a DC 15 Dexterity saving throw or become restrained.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -131,11 +132,12 @@
         "sort": 0
       }
     },
-    "attuned": false
+    "attuned": false,
+    "identifier": "rope-of-entanglement"
   },
   "effects": [],
   "folder": "UnUwTG4YIgd0kaUJ",
-  "sort": 0,
+  "sort": 3700000,
   "ownership": {
     "default": 0
   },
@@ -146,7 +148,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.0.0",
     "createdTime": 1725037158319,
-    "modifiedTime": 1725037158319,
+    "modifiedTime": 1725992503269,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!J8gQdJJi5e8LmD7H"

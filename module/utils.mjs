@@ -20,7 +20,7 @@ export function formatCR(value) {
  * @returns {Handlebars.SafeString}
  */
 export function formatModifier(mod) {
-  if ( !Number.isFinite(mod) ) return new Handlebars.SafeString("");
+  if ( !Number.isFinite(mod) ) return new Handlebars.SafeString("—");
   return new Handlebars.SafeString(`<span class="sign">${mod < 0 ? "-" : "+"}</span>${Math.abs(mod)}`);
 }
 
@@ -61,6 +61,20 @@ function _formatNumberAsNumerals(n) {
     out += numeral.repeat(quotient);
   }
   return out;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Produce a number with the parts wrapped in their own spans.
+ * @param {number} value      A number for format.
+ * @param {object} [options]  Formatting options.
+ * @returns {string}
+ */
+export function formatNumberParts(value, options) {
+  if ( options.numerals ) throw new Error("Cannot segment numbers when formatted as numerals.");
+  return new Intl.NumberFormat(game.i18n.lang, options).formatToParts(value)
+    .reduce((str, { type, value }) => `${str}<span class="${type}">${value}</span>`, "");
 }
 
 /* -------------------------------------------- */
@@ -228,6 +242,33 @@ export function staticID(id) {
 }
 
 /* -------------------------------------------- */
+/*  Keybindings Helper                          */
+/* -------------------------------------------- */
+
+/**
+ * Based on the provided event, determine if the keys are pressed to fulfill the specified keybinding.
+ * @param {Event} event    Triggering event.
+ * @param {string} action  Keybinding action within the `dnd5e` namespace.
+ * @returns {boolean}      Is the keybinding triggered?
+ */
+export function areKeysPressed(event, action) {
+  if ( !event ) return false;
+  const activeModifiers = {};
+  const addModifiers = (key, pressed) => {
+    activeModifiers[key] = pressed;
+    KeyboardManager.MODIFIER_CODES[key].forEach(n => activeModifiers[n] = pressed);
+  };
+  addModifiers(KeyboardManager.MODIFIER_KEYS.CONTROL, event.ctrlKey || event.metaKey);
+  addModifiers(KeyboardManager.MODIFIER_KEYS.SHIFT, event.shiftKey);
+  addModifiers(KeyboardManager.MODIFIER_KEYS.ALT, event.altKey);
+  return game.keybindings.get("dnd5e", action).some(b => {
+    if ( game.keyboard.downKeys.has(b.key) && b.modifiers.every(m => activeModifiers[m]) ) return true;
+    if ( b.modifiers.length ) return false;
+    return activeModifiers[b.key];
+  });
+}
+
+/* -------------------------------------------- */
 /*  Object Helpers                              */
 /* -------------------------------------------- */
 
@@ -310,14 +351,23 @@ export function indexFromUuid(uuid) {
 /**
  * Creates an HTML document link for the provided UUID.
  * Try to build links to compendium content synchronously to avoid DB lookups.
- * @param {string} uuid               UUID for which to produce the link.
+ * @param {string} uuid                    UUID for which to produce the link.
  * @param {object} [options]
- * @param {string} [options.tooltip]  Tooltip to add to the link.
- * @returns {string}                  Link to the item or empty string if item wasn't found.
+ * @param {string} [options.tooltip]       Tooltip to add to the link.
+ * @param {string} [options.renderBroken]  If a UUID cannot found, render it as a broken link instead of returning the
+ *                                         empty string.
+ * @returns {string}                       Link to the item or empty string if item wasn't found.
  */
-export function linkForUuid(uuid, { tooltip }={}) {
+export function linkForUuid(uuid, { tooltip, renderBroken }={}) {
   let doc = fromUuidSync(uuid);
-  if ( !doc ) return "";
+  if ( !doc ) {
+    if ( renderBroken ) return `
+      <a class="content-link broken" data-uuid="${uuid}">
+        <i class="fas fa-unlink"></i> ${game.i18n.localize("Unknown")}
+      </a>
+    `;
+    return "";
+  }
   if ( uuid.startsWith("Compendium.") && !(doc instanceof foundry.abstract.Document) ) {
     const {collection} = foundry.utils.parseUuid(uuid);
     const cls = collection.documentClass;
@@ -331,6 +381,35 @@ export function linkForUuid(uuid, { tooltip }={}) {
 
 /* -------------------------------------------- */
 /*  Targeting                                   */
+/* -------------------------------------------- */
+
+/**
+ * Important information on a targeted token.
+ *
+ * @typedef {object} TargetDescriptor5e
+ * @property {string} uuid  The UUID of the target.
+ * @property {string} img   The target's image.
+ * @property {string} name  The target's name.
+ * @property {number} ac    The target's armor class, if applicable.
+ */
+
+/**
+ * Grab the targeted tokens and return relevant information on them.
+ * @returns {TargetDescriptor[]}
+ */
+export function getTargetDescriptors() {
+  const targets = new Map();
+  for ( const token of game.user.targets ) {
+    const { name } = token;
+    const { img, system, uuid, statuses } = token.actor ?? {};
+    if ( uuid ) {
+      const ac = statuses.has("coverTotal") ? null : system.attributes?.ac?.value;
+      targets.set(uuid, { name, img, uuid, ac: ac ?? null });
+    }
+  }
+  return Array.from(targets.values());
+}
+
 /* -------------------------------------------- */
 
 /**
@@ -399,6 +478,7 @@ export async function preloadHandlebarsTemplates() {
     "systems/dnd5e/templates/shared/inventory.hbs",
     "systems/dnd5e/templates/shared/inventory2.hbs",
     "systems/dnd5e/templates/apps/parts/trait-list.hbs",
+    "systems/dnd5e/templates/apps/parts/traits-list.hbs",
 
     // Actor Sheet Partials
     "systems/dnd5e/templates/actors/parts/actor-classes.hbs",
@@ -410,6 +490,7 @@ export async function preloadHandlebarsTemplates() {
     "systems/dnd5e/templates/actors/parts/actor-warnings.hbs",
     "systems/dnd5e/templates/actors/parts/actor-warnings-dialog.hbs",
     "systems/dnd5e/templates/actors/parts/biography-textbox.hbs",
+    "systems/dnd5e/templates/actors/tabs/character-bastion.hbs",
     "systems/dnd5e/templates/actors/tabs/character-biography.hbs",
     "systems/dnd5e/templates/actors/tabs/character-details.hbs",
     "systems/dnd5e/templates/actors/tabs/creature-features.hbs",
@@ -430,6 +511,7 @@ export async function preloadHandlebarsTemplates() {
     "systems/dnd5e/templates/items/details/details-consumable.hbs",
     "systems/dnd5e/templates/items/details/details-container.hbs",
     "systems/dnd5e/templates/items/details/details-equipment.hbs",
+    "systems/dnd5e/templates/items/details/details-facility.hbs",
     "systems/dnd5e/templates/items/details/details-feat.hbs",
     "systems/dnd5e/templates/items/details/details-loot.hbs",
     "systems/dnd5e/templates/items/details/details-mountable.hbs",
@@ -464,6 +546,8 @@ export async function preloadHandlebarsTemplates() {
     "systems/dnd5e/templates/shared/fields/field-uses.hbs",
 
     // Journal Partials
+    "systems/dnd5e/templates/journal/parts/journal-legacy-traits.hbs",
+    "systems/dnd5e/templates/journal/parts/journal-modern-traits.hbs",
     "systems/dnd5e/templates/journal/parts/journal-table.hbs",
 
     // Activity Partials
@@ -480,7 +564,7 @@ export async function preloadHandlebarsTemplates() {
     "systems/dnd5e/templates/activity/columns/activity-column-uses.hbs",
     "systems/dnd5e/templates/activity/columns/activity-column-weight.hbs",
     "systems/dnd5e/templates/activity/activity-row-summary.hbs",
-    "systems/dnd5e/templates/activity/activity-usage-notes.hbs",
+    "systems/dnd5e/templates/activity/parts/activity-usage-notes.hbs",
 
     // Advancement Partials
     "systems/dnd5e/templates/advancement/parts/advancement-ability-score-control.hbs",
@@ -640,6 +724,7 @@ export function registerHandlebarsHelpers() {
     "dnd5e-itemContext": itemContext,
     "dnd5e-linkForUuid": (uuid, options) => linkForUuid(uuid, options.hash),
     "dnd5e-numberFormat": (context, options) => formatNumber(context, options.hash),
+    "dnd5e-numberParts": (context, options) => formatNumberParts(context, options.hash),
     "dnd5e-object": makeObject,
     "dnd5e-textFormat": formatText
   });
@@ -688,7 +773,8 @@ export function performPreLocalization(config) {
   // Localize & sort status effects
   CONFIG.statusEffects.forEach(s => s.name = game.i18n.localize(s.name));
   CONFIG.statusEffects.sort((lhs, rhs) =>
-    lhs.id === "dead" ? -1 : rhs.id === "dead" ? 1 : lhs.name.localeCompare(rhs.name, game.i18n.lang)
+    lhs.order || rhs.order ? (lhs.order ?? Infinity) - (rhs.order ?? Infinity)
+      : lhs.name.localeCompare(rhs.name, game.i18n.lang)
   );
 }
 
@@ -759,7 +845,9 @@ export function getHumanReadableAttributeLabel(attr, { actor }={}) {
   }
 
   if ( attr.startsWith(".") && actor ) {
-    const item = fromUuidSync(attr, { relative: actor });
+    // TODO: Remove `strict: false` when https://github.com/foundryvtt/foundryvtt/issues/11214 is resolved
+    // Only necessary when opening the token config for an actor in a compendium
+    const item = fromUuidSync(attr, { relative: actor, strict: false });
     return item?.name ?? attr;
   }
 

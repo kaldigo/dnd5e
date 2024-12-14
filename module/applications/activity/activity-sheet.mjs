@@ -14,7 +14,7 @@ export default class ActivitySheet extends Application5e {
 
   /** @inheritDoc */
   static DEFAULT_OPTIONS = {
-    classes: ["activity", "sheet"],
+    classes: ["activity", "sheet", "standard-form"],
     tag: "form",
     document: null,
     viewPermission: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED,
@@ -202,6 +202,7 @@ export default class ActivitySheet extends Application5e {
     context.data = {};
     context.disabled = {};
     for ( const field of ["activation", "duration", "range", "target", "uses"] ) {
+      if ( !this.activity[field] ) continue;
       context.data[field] = this.activity[field].override ? context.source[field] : context.inferred[field];
       context.disabled[field] = this.activity[field].canOverride && !this.activity[field].override;
     }
@@ -215,7 +216,7 @@ export default class ActivitySheet extends Application5e {
       { value: "", label: game.i18n.localize("DND5E.NoneActionLabel") }
     ];
     context.affectsPlaceholder = game.i18n.localize(
-      `DND5E.Target${context.data.target.template.type ? "Every" : "Any"}`
+      `DND5E.Target${context.data.target?.template?.type ? "Every" : "Any"}`
     );
     context.durationUnits = [
       { value: "inst", label: game.i18n.localize("DND5E.TimeInst") },
@@ -260,6 +261,7 @@ export default class ActivitySheet extends Application5e {
       };
     });
     context.showConsumeSpellSlot = this.activity.isSpell && (this.item.system.level !== 0);
+    context.showScaling = !this.activity.isSpell;
 
     // Uses recovery
     context.recoveryPeriods = [
@@ -284,7 +286,7 @@ export default class ActivitySheet extends Application5e {
     }));
 
     // Template dimensions
-    context.dimensions = context.activity.target.template.dimensions;
+    context.dimensions = context.activity.target?.template?.dimensions;
 
     return context;
   }
@@ -365,6 +367,7 @@ export default class ActivitySheet extends Application5e {
         const part = {
           data,
           fields: this.activity.schema.fields.damage.fields.parts.element.fields,
+          index: index + indexOffset,
           prefix: `damage.parts.${index + indexOffset}.`,
           source: context.source.damage.parts[index + indexOffset] ?? data,
           canScale: this.activity.canScaleDamage,
@@ -482,6 +485,7 @@ export default class ActivitySheet extends Application5e {
         .toggle("collapsed", !this.#expandedSections.get(element.dataset.expandId));
     }
     this.#toggleNestedTabs();
+    if ( !this.isEditable ) this._disableFields();
   }
 
   /* -------------------------------------------- */
@@ -568,7 +572,7 @@ export default class ActivitySheet extends Application5e {
   static async #addEffect(event, target) {
     if ( !this.activity.effects ) return;
     const effectData = this._addEffectData();
-    const [created] = await this.item.createEmbeddedDocuments("ActiveEffect", [effectData]);
+    const [created] = await this.item.createEmbeddedDocuments("ActiveEffect", [effectData], { render: false });
     this.activity.update({ effects: [...this.activity.toObject().effects, { _id: created.id }] });
   }
 
@@ -650,7 +654,7 @@ export default class ActivitySheet extends Application5e {
   static async #deleteEffect(event, target) {
     if ( !this.activity.effects ) return;
     const effectId = target.closest("[data-effect-id]")?.dataset.effectId;
-    const result = await this.item.effects.get(effectId)?.deleteDialog();
+    const result = await this.item.effects.get(effectId)?.deleteDialog({}, { render: false });
     if ( result instanceof ActiveEffect ) {
       const effects = this.activity.toObject().effects.filter(e => e._id !== effectId);
       this.activity.update({ effects });

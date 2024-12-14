@@ -7,8 +7,7 @@ import EquipmentData from "../data/item/equipment.mjs";
 import SpellData from "../data/item/spell.mjs";
 import ActivitiesTemplate from "../data/item/templates/activities.mjs";
 import PhysicalItemTemplate from "../data/item/templates/physical-item.mjs";
-import simplifyRollFormula from "../dice/simplify-roll-formula.mjs";
-import { getSceneTargets, simplifyBonus } from "../utils.mjs";
+import { _applyDeprecatedD20Configs } from "../dice/d20-roll.mjs";
 import Scaling from "./scaling.mjs";
 import Proficiency from "./actor/proficiency.mjs";
 import SelectChoices from "./actor/select-choices.mjs";
@@ -104,6 +103,27 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   get abilityMod() {
     return this.system.abilityMod ?? null;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Should deletion of this item be allowed? Doesn't prevent programatic deletion, but affects UI controls.
+   * @type {boolean}
+   */
+  get canDelete() {
+    return !this.flags.dnd5e?.cachedFor;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Should duplication of this item be allowed? Doesn't prevent programatic duplication, but affects UI controls.
+   * @type {boolean}
+   */
+  get canDuplicate() {
+    return !this.system.metadata?.singleton && !["class", "subclass"].includes(this.type)
+      && !this.flags.dnd5e?.cachedFor;
   }
 
   /* --------------------------------------------- */
@@ -266,7 +286,9 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    * @type {string}
    */
   get identifier() {
-    return this.system.identifier || this.name.slugify({strict: true});
+    if ( this.system.identifier ) return this.system.identifier;
+    const identifier = this.name.replaceAll(/(\w+)([\\|/])(\w+)/g, "$1-$3");
+    return identifier.slugify({ strict: true });
   }
 
   /* --------------------------------------------- */
@@ -545,6 +567,13 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   /* -------------------------------------------- */
 
   /** @inheritDoc */
+  prepareBaseData() {
+    this.labels = {};
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
   prepareEmbeddedDocuments() {
     super.prepareEmbeddedDocuments();
     for ( const activity of this.system.activities ?? [] ) activity.prepareData();
@@ -592,7 +621,7 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     this.advancement = {
       byId: {},
       byLevel: Object.fromEntries(
-        Array.fromRange(CONFIG.DND5E.maxLevel, minAdvancementLevel).map(l => [l, []])
+        Array.fromRange(CONFIG.DND5E.maxLevel + 1).slice(minAdvancementLevel).map(l => [l, []])
       ),
       byType: {},
       needingConfiguration: []
@@ -654,10 +683,11 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     const damages = this.labels.damages = [];
     if ( !this.system.activities?.size ) return;
     for ( const activity of this.system.activities ) {
-      if ( activity.activation.type && (this.type !== "spell") ) {
-        const { activation, concentrationDuration, duration, range, target } = activity.labels;
-        activations.push({ activation, concentrationDuration, duration, range, target });
-      }
+      if ( !("activation" in activity) ) continue;
+      const activationLabels = activity.activationLabels;
+      if ( activationLabels ) activations.push(
+        { ...activationLabels, concentrationDuration: activity.labels.concentrationDuration }
+      );
       if ( activity.type === "attack" ) {
         const { toHit, modifier } = activity.labels;
         attacks.push({ toHit, modifier });
@@ -686,55 +716,10 @@ export default class Item5e extends SystemDocumentMixin(Item) {
       "The `getAttackToHit` method on `Item5e` has moved to `getAttackData` on `AttackActivity`.",
       { since: "DnD5e 4.0", until: "DnD5e 4.4", once: true }
     );
-    // TODO: Replace this implementation with a call to the method on the activity once `rollAttack` has been moved
 
-    if ( !this.hasAttack ) return null;
-    const flat = this.system.attack.flat;
-    const rollData = this.getRollData();
-    const parts = [];
-    let ammo;
-
-    if ( this.isOwned && !flat ) {
-      // Ability score modifier
-      if ( this.system.ability !== "none" ) parts.push("@mod");
-
-      // Add proficiency bonus.
-      if ( this.system.prof?.hasProficiency ) {
-        parts.push("@prof");
-        rollData.prof = this.system.prof.term;
-      }
-
-      // Actor-level global bonus to attack rolls
-      const actorBonus = this.actor.system.bonuses?.[this.system.actionType] || {};
-      if ( actorBonus.attack ) parts.push(actorBonus.attack);
-
-      ammo = this.hasAmmo ? this.actor.items.get(this.system.consume.target) : null;
-    }
-
-    // Include the item's innate & magical attack bonuses
-    if ( this.system.attack.bonus ) parts.push(this.system.attack.bonus);
-    if ( this.system.magicalBonus && this.system.magicAvailable && !flat ) parts.push(this.system.magicalBonus);
-
-    // One-time bonus provided by consumed ammunition
-    if ( ammo && !flat ) {
-      const ammoItemQuantity = ammo.system.quantity;
-      const ammoCanBeConsumed = ammoItemQuantity && (ammoItemQuantity - (this.system.consume.amount ?? 0) >= 0);
-      const ammoParts = [
-        Roll.replaceFormulaData(ammo.system.attack.bonus, rollData),
-        ammo.system.magicAvailable ? ammo.system.magicalBonus : null
-      ].filter(b => b);
-      const ammoIsTypeConsumable = (ammo.type === "consumable") && (ammo.system.type.value === "ammo");
-      if ( ammoCanBeConsumed && ammoParts.length && ammoIsTypeConsumable ) {
-        parts.push("@ammo");
-        rollData.ammo = ammoParts.join(" + ");
-      }
-    }
-
-    // Condense the resulting attack bonus formula into a simplified label
-    const roll = new Roll(parts.join("+"), rollData);
-    const formula = simplifyRollFormula(roll.formula) || "0";
-    this.labels.modifier = simplifyRollFormula(roll.formula, { deterministic: true }) || "0";
-    this.labels.toHit = !/^[+-]/.test(formula) ? `+ ${formula}` : formula;
+    const activity = this.system.activities?.getByType("attack")[0];
+    if ( !activity ) return null;
+    const { data: rollData, parts } = activity.getAttackData();
     return { rollData, parts };
   }
 
@@ -785,6 +770,8 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    * Trigger an Item usage, optionally creating a chat message with followup actions.
    * @param {ActivityUseConfiguration} config       Configuration info for the activation.
    * @param {boolean} [config.legacy=true]          Whether this is a legacy invocation, using the old signature.
+   * @param {boolean} [config.chooseActivity=false] Force the activity selection prompt unless the fast-forward modifier
+   *                                                is held.
    * @param {ActivityDialogConfiguration} dialog    Configuration info for the usage dialog.
    * @param {ActivityMessageConfiguration} message  Configuration info for the created chat message.
    * @returns {Promise<ActivityUsageResults|ChatMessage|object|void>}  Returns the usage results for the triggered
@@ -792,6 +779,8 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    *                                                                   activities and was posted directly to chat.
    */
   async use(config={}, dialog={}, message={}) {
+    if ( this.pack ) return;
+
     let event = config.event;
     if ( config.legacy !== false ) {
       foundry.utils.logCompatibilityWarning(
@@ -801,23 +790,28 @@ export default class Item5e extends SystemDocumentMixin(Item) {
       );
       event = dialog?.event;
     }
-    if ( this.system.activities.size ) {
-      let usageConfig = config;
+    const activities = this.system.activities?.filter(a =>
+      !this.getFlag("dnd5e", "riders.activity")?.includes(a.id) && a.canUse
+    );
+    if ( activities?.length ) {
+      const { legacy, chooseActivity, ...activityConfig } = config;
+      let usageConfig = activityConfig;
       let dialogConfig = dialog;
       let messageConfig = message;
-      const activities = this.system.activities.contents.sort((a, b) => a.sort - b.sort);
       let activity = activities[0];
-      if ( (activities.length > 1) && !event?.shiftKey ) activity = await ActivityChoiceDialog.create(this);
+      if ( ((activities.length > 1) || chooseActivity) && !event?.shiftKey ) {
+        activity = await ActivityChoiceDialog.create(this);
+      }
       if ( !activity ) return;
-      if ( config.legacy !== false ) {
+      if ( legacy !== false ) {
         usageConfig = {};
         dialogConfig = {};
         messageConfig = {};
-        activity._applyDeprecatedConfigs(usageConfig, dialogConfig, messageConfig, config, dialog);
+        activity._applyDeprecatedConfigs(usageConfig, dialogConfig, messageConfig, activityConfig, dialog);
       }
       return activity.use(usageConfig, dialogConfig, messageConfig);
     }
-    if ( this.actor ) return this.displayCard();
+    if ( this.actor ) return this.displayCard(message);
   }
 
   /* -------------------------------------------- */
@@ -852,84 +846,68 @@ export default class Item5e extends SystemDocumentMixin(Item) {
 
   /**
    * Display the chat card for an Item as a Chat Message
-   * @param {ItemUseOptions} [options]  Options which configure the display of the item chat card.
-   * @returns {ChatMessage|object}      Chat message if `createMessage` is true, otherwise an object containing
-   *                                    message data.
+   * @param {Partial<ActivityMessageConfiguration>} [message]  Configuration info for the created chat message.
+   * @returns {Promise<ChatMessage5e|object|void>}
    */
-  async displayCard(options={}) {
-
-    // Render the chat card template
-    const token = this.actor.token;
-    const consumeUsage = this.hasLimitedUses && !options.flags?.dnd5e?.use?.consumedUsage;
-    const consumeResource = this.hasResource && !options.flags?.dnd5e?.use?.consumedResource;
-    const hasButtons = this.hasAttack || this.hasDamage || this.isVersatile || this.hasSave || this.system.formula
-      || this.hasAreaTarget || (this.type === "tool") || this.hasAbilityCheck || this.system.hasSummoning
-      || consumeUsage || consumeResource;
-    const templateData = {
-      hasButtons,
+  async displayCard(message={}) {
+    const context = {
       actor: this.actor,
       config: CONFIG.DND5E,
-      tokenId: token?.uuid || null,
+      tokenId: this.actor.token?.uuid || null,
       item: this,
-      effects: this.effects.filter(e => (e.type !== "enchantment") && !e.getFlag("dnd5e", "rider")),
       data: await this.system.getCardData(),
-      labels: this.labels,
-      hasAttack: this.hasAttack,
-      isHealing: this.isHealing,
-      hasDamage: this.hasDamage,
-      isVersatile: this.isVersatile,
-      isSpell: this.type === "spell",
-      hasSave: this.hasSave,
-      hasAreaTarget: this.hasAreaTarget,
-      isTool: this.type === "tool",
-      hasAbilityCheck: this.hasAbilityCheck,
-      consumeUsage,
-      consumeResource
-    };
-    const html = await renderTemplate("systems/dnd5e/templates/chat/item-card.hbs", templateData);
-
-    // Create the ChatMessage data object
-    const chatData = {
-      user: game.user.id,
-      content: html,
-      speaker: ChatMessage.getSpeaker({actor: this.actor, token}),
-      flags: {
-        "core.canPopout": true,
-        "dnd5e.item": { id: this.id, uuid: this.uuid, type: this.type }
-      }
+      isSpell: this.type === "spell"
     };
 
-    // If the Item was destroyed in the process of displaying its card - embed the item data in the chat message
-    if ( (this.type === "consumable") && !this.actor.items.has(this.id) ) {
-      chatData.flags["dnd5e.itemData"] = templateData.item.toObject();
-    }
+    const messageConfig = foundry.utils.mergeObject({
+      create: message?.createMessage ?? true,
+      data: {
+        content: await renderTemplate("systems/dnd5e/templates/chat/item-card.hbs", context),
+        flags: {
+          "core.canPopout": true,
+          "dnd5e.item": { id: this.id, uuid: this.uuid, type: this.type }
+        },
+        speaker: ChatMessage.getSpeaker({ actor: this.actor, token: this.actor.token })
+      },
+      rollMode: game.settings.get("core", "rollMode")
+    }, message);
 
     // Merge in the flags from options
-    chatData.flags = foundry.utils.mergeObject(chatData.flags, options.flags);
+    if ( foundry.utils.getType(message.flags) === "Object" ) {
+      foundry.utils.mergeObject(messageConfig.data.flags, message.flags);
+      delete messageConfig.flags;
+    }
 
     /**
-     * A hook event that fires before an item chat card is created.
-     * @function dnd5e.preDisplayCard
+     * A hook event that fires before an item chat card is created without using an activity.
+     * @function dnd5e.preDisplayCardV2
      * @memberof hookEvents
-     * @param {Item5e} item             Item for which the chat card is being displayed.
-     * @param {object} chatData         Data used to create the chat message.
-     * @param {ItemUseOptions} options  Options which configure the display of the item chat card.
+     * @param {Item5e} item                           Item for which the card will be created.
+     * @param {ActivityMessageConfiguration} message  Configuration for the roll message.
+     * @returns {boolean}                             Return `false` to prevent the card from being displayed.
      */
-    Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);
+    if ( Hooks.call("dnd5e.preDisplayCardV2", this, messageConfig) === false ) return;
 
-    // Apply the roll mode to adjust message visibility
-    ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"));
+    if ( "dnd5e.preDisplayCard" in Hooks.events ) {
+      foundry.utils.logCompatibilityWarning(
+        "The `dnd5e.preDisplayCard` hook has been deprecated and replaced with `dnd5e.preDisplayCardV2`.",
+        { since: "DnD5e 4.0", until: "DnD5e 4.4" }
+      );
+      const hookData = { createMessage: messageConfig.create };
+      Hooks.callAll("dnd5e.preDisplayCard", this, messageConfig.data, hookData);
+      messageConfig.create = hookData.createMessage;
+    }
 
-    // Create the Chat Message or return its data
-    const card = (options.createMessage !== false) ? await ChatMessage.create(chatData) : chatData;
+    ChatMessage.applyRollMode(messageConfig.data, messageConfig.rollMode);
+    const card = messageConfig.create === false ? messageConfig.data : await ChatMessage.create(messageConfig.data);
 
     /**
      * A hook event that fires after an item chat card is created.
      * @function dnd5e.displayCard
      * @memberof hookEvents
-     * @param {Item5e} item              Item for which the chat card is being displayed.
-     * @param {ChatMessage|object} card  The created ChatMessage instance or ChatMessageData depending on whether
-     *                                   options.createMessage was set to `true`.
+     * @param {Item5e} item                Item for which the chat card is being displayed.
+     * @param {ChatMessage5e|object} card  The created ChatMessage instance or ChatMessageData depending on whether
+     *                                     options.createMessage was set to `true`.
      */
     Hooks.callAll("dnd5e.displayCard", this, card);
 
@@ -946,23 +924,26 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    * @returns {object}              An object of chat data to render.
    */
   async getChatData(htmlOptions={}) {
-    const data = this.toObject().system;
+    const context = {};
+    let { identified, unidentified, description } = this.system;
 
     // Rich text description
-    data.description.value = await TextEditor.enrichHTML(data.description.value, {
+    const isIdentified = identified !== false;
+    description = game.user.isGM || isIdentified ? description.value : unidentified?.description;
+    context.description = await TextEditor.enrichHTML(description ?? "", {
       relativeTo: this,
       rollData: this.getRollData(),
       ...htmlOptions
     });
 
     // Type specific properties
-    data.properties = [
+    context.properties = [
       ...this.system.chatProperties ?? [],
       ...this.system.equippableItemCardProperties ?? [],
-      ...Object.values(this.labels.activations[0] ?? {})
+      ...Object.values(this.labels.activations?.[0] ?? {})
     ].filter(p => p);
 
-    return data;
+    return context;
   }
 
   /* -------------------------------------------- */
@@ -979,7 +960,7 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   async rollAttack({ spellLevel, ...options }={}) {
     foundry.utils.logCompatibilityWarning(
-      "The Item5e#rollAttack method has been deprecated and should now be called directly on the attack activity.",
+      "The `Item5e#rollAttack` method has been deprecated and should now be called directly on the attack activity.",
       { since: "DnD5e 4.0", until: "DnD5e 4.4" }
     );
 
@@ -991,27 +972,13 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     const activity = item.system.activities?.getByType("attack")[0];
     if ( !activity ) throw new Error("This Item does not have an Attack activity to roll!");
 
-    const rolls = await activity.rollAttack(options);
+    const rollConfig = {};
+    const dialogConfig = {};
+    const messageConfig = {};
+    _applyDeprecatedD20Configs(rollConfig, dialogConfig, messageConfig, options);
+
+    const rolls = await activity.rollAttack(rollConfig, dialogConfig, messageConfig);
     return rolls?.[0] ?? null;
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Extract salient information about targeted Actors.
-   * @returns {TargetDescriptor5e[]}
-   * @protected
-   */
-  static _formatAttackTargets() {
-    // TODO: Remove this when `rollDamage` has been moved to activities
-    const targets = new Map();
-    for ( const token of game.user.targets ) {
-      const { name } = token;
-      const { img, system, uuid } = token.actor ?? {};
-      const ac = system?.attributes?.ac ?? {};
-      if ( uuid && Number.isNumeric(ac.value) ) targets.set(uuid, { name, img, uuid, ac: ac.value });
-    }
-    return Array.from(targets.values());
   }
 
   /* -------------------------------------------- */
@@ -1031,7 +998,7 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   async rollDamage({ spellLevel, ...options }={}) {
     foundry.utils.logCompatibilityWarning(
-      "The Item5e#rollDamage method has been deprecated and should now be called directly on an activity.",
+      "The `Item5e#rollDamage` method has been deprecated and should now be called directly on an activity.",
       { since: "DnD5e 4.0", until: "DnD5e 4.4" }
     );
 
@@ -1061,7 +1028,7 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   async rollFormula({spellLevel}={}) {
     foundry.utils.logCompatibilityWarning(
-      "The Item5e#rollFormula method has been deprecated and should now be called directly on the utility activity.",
+      "The `Item5e#rollFormula` method has been deprecated and should now be called directly on the utility activity.",
       { since: "DnD5e 4.0", until: "DnD5e 4.4" }
     );
 
@@ -1082,9 +1049,14 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   /**
    * Perform an ability recharge test for an item which uses the d6 recharge mechanic.
    * @returns {Promise<Roll|void>}   A Promise which resolves to the created Roll instance
+   * @deprecated since DnD5e 4.0, targeted for removal in DnD5e 4.4
    */
   async rollRecharge() {
-    return this.system.uses?.rollRecharge();
+    foundry.utils.logCompatibilityWarning(
+      "The `rollRecharge` method on `Item5e` has been moved to `system.uses.rollRecharge`.",
+      { since: "DnD5e 4.0", until: "DnD5e 4.4" }
+    );
+    return (await this.system.uses?.rollRecharge())?.[0];
   }
 
   /* -------------------------------------------- */
@@ -1096,11 +1068,12 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    */
   async rollToolCheck(options={}) {
     if ( this.type !== "tool" ) throw new Error("Wrong item type!");
-    return this.actor?.rollToolCheck(this.system.type.baseItem, {
+    return this.actor?.rollToolCheck({
       ability: this.system.ability,
       bonus: this.system.bonus,
       prof: this.system.prof,
       item: this,
+      tool: this.system.type.baseItem,
       ...options
     });
   }
@@ -1131,17 +1104,19 @@ export default class Item5e extends SystemDocumentMixin(Item) {
 
   /**
    * Apply listeners to chat messages.
-   * @param {HTML} html  Rendered chat message.
+   * @param {jQuery|HTMLElement} html  Rendered chat message.
    */
   static chatListeners(html) {
-    html.on("click", ".item-name, .collapsible", this._onChatCardToggleContent.bind(this));
-    html[0].addEventListener("click", event => {
+    html = html instanceof HTMLElement ? html : html[0];
+    html.addEventListener("click", event => {
       if ( event.target.closest("[data-context-menu]") ) {
         event.preventDefault();
         event.stopPropagation();
         event.target.closest("[data-message-id]").dispatchEvent(new PointerEvent("contextmenu", {
           view: window, bubbles: true, cancelable: true
         }));
+      } else if ( event.target.closest(".collapsible") ) {
+        this._onChatCardToggleContent(event);
       }
     });
   }
@@ -1154,8 +1129,8 @@ export default class Item5e extends SystemDocumentMixin(Item) {
    * @private
    */
   static _onChatCardToggleContent(event) {
-    const header = event.currentTarget;
-    if ( header.classList.contains("collapsible") && !event.target.closest(".collapsible-content.card-content") ) {
+    const header = event.target.closest(".collapsible");
+    if ( !event.target.closest(".collapsible-content.card-content") ) {
       event.preventDefault();
       header.classList.toggle("collapsed");
 
@@ -1163,42 +1138,6 @@ export default class Item5e extends SystemDocumentMixin(Item) {
       const popout = header.closest(".chat-popout");
       if ( popout ) popout.style.height = "";
     }
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Get the Actor which is the author of a chat card
-   * @param {HTMLElement} card    The chat card being used
-   * @returns {Actor|null}        The Actor document or null
-   * @private
-   */
-  static async _getChatCardActor(card) {
-
-    // Case 1 - a synthetic actor from a Token
-    if ( card.dataset.tokenId ) {
-      const token = await fromUuid(card.dataset.tokenId);
-      if ( !token ) return null;
-      return token.actor;
-    }
-
-    // Case 2 - use Actor ID directory
-    const actorId = card.dataset.actorId;
-    return game.actors.get(actorId) || null;
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Get token targets for the current chat card action and display warning of none are selected.
-   * @param {HTMLElement} card  The chat card being used.
-   * @returns {Token5e[]}       An Array of Token objects, if any.
-   * @private
-   */
-  static _getChatCardTargets(card) {
-    const targets = getSceneTargets();
-    if ( !targets.length ) ui.notifications.warn("DND5E.ActionWarningNoToken", {localize: true});
-    return targets;
   }
 
   /* -------------------------------------------- */
@@ -1391,29 +1330,18 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   async _preCreate(data, options, user) {
     if ( (await super._preCreate(data, options, user)) === false ) return false;
 
-    // Create class identifier based on name
-    if ( ["class", "subclass"].includes(this.type) && !this.system.identifier ) {
-      await this.updateSource({ "system.identifier": data.name.slugify({strict: true}) });
+    // Create identifier based on name
+    if ( this.system.hasOwnProperty("identifier") && !data.system?.identifier ) {
+      this.updateSource({ "system.identifier": this.identifier });
     }
+  }
 
-    if ( !this.isEmbedded || (this.parent.type === "vehicle") ) return;
-    const isNPC = this.parent.type === "npc";
-    let updates;
-    switch (data.type) {
-      case "equipment":
-        updates = this._onCreateOwnedEquipment(data, isNPC);
-        break;
-      case "spell":
-        updates = this._onCreateOwnedSpell(data, isNPC);
-        break;
-      case "weapon":
-        updates = this._onCreateOwnedWeapon(data, isNPC);
-        break;
-      case "feat":
-        updates = this._onCreateOwnedFeature(data, isNPC);
-        break;
-    }
-    if ( updates ) return this.updateSource(updates);
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
+    await this.system.onCreateActivities?.(data, options, userId);
   }
 
   /* -------------------------------------------- */
@@ -1421,59 +1349,15 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   /** @inheritDoc */
   async _preUpdate(changed, options, user) {
     if ( (await super._preUpdate(changed, options, user)) === false ) return false;
-
-    if ( foundry.utils.hasProperty(changed, "system.container") ) {
-      options.formerContainer = (await this.container)?.uuid;
-    }
-
-    if ( (this.type !== "class") || !("levels" in (changed.system || {})) ) return;
-
-    // Check to make sure the updated class level isn't below zero
-    if ( changed.system.levels <= 0 ) {
-      ui.notifications.warn("DND5E.MaxClassLevelMinimumWarn", {localize: true});
-      changed.system.levels = 1;
-    }
-
-    // Check to make sure the updated class level doesn't exceed level cap
-    if ( changed.system.levels > CONFIG.DND5E.maxLevel ) {
-      ui.notifications.warn(game.i18n.format("DND5E.MaxClassLevelExceededWarn", {max: CONFIG.DND5E.maxLevel}));
-      changed.system.levels = CONFIG.DND5E.maxLevel;
-    }
-    if ( !this.isEmbedded || (this.parent.type !== "character") ) return;
-
-    // Check to ensure the updated character doesn't exceed level cap
-    const newCharacterLevel = this.actor.system.details.level + (changed.system.levels - this.system.levels);
-    if ( newCharacterLevel > CONFIG.DND5E.maxLevel ) {
-      ui.notifications.warn(game.i18n.format("DND5E.MaxCharacterLevelExceededWarn", {max: CONFIG.DND5E.maxLevel}));
-      changed.system.levels -= newCharacterLevel - CONFIG.DND5E.maxLevel;
-    }
+    await this.system.preUpdateActivities?.(changed, options, user);
   }
 
   /* -------------------------------------------- */
 
   /** @inheritDoc */
-  _onUpdate(changed, options, userId) {
+  async _onUpdate(changed, options, userId) {
     super._onUpdate(changed, options, userId);
-    if ( userId !== game.user.id ) return;
-
-    // Flag ActiveEffects as riders if they are used as such in an Enchantment Activity.
-    const riders = new Set((this.system.activities?.getByType("enchant") ?? [])
-      .flatMap(activity => activity.effects)
-      .flatMap(e => Array.from(e.riders.effect)));
-
-    const updates = this.effects.reduce((arr, e) => {
-      if ( e.getFlag("dnd5e", "rider") && !riders.has(e.id) ) arr.push({ _id: e.id, "flags.dnd5e.-=rider": null });
-      return arr;
-    }, []);
-
-    updates.push(...riders.reduce((arr, id) => {
-      const effect = this.effects.get(id);
-      if ( !effect || effect.getFlag("dnd5e", "rider") ) return arr;
-      arr.push({ _id: id, "flags.dnd5e.rider": true });
-      return arr;
-    }, []));
-
-    if ( updates.length ) this.updateEmbeddedDocuments("ActiveEffect", updates);
+    await this.system.onUpdateActivities?.(changed, options, userId);
   }
 
   /* -------------------------------------------- */
@@ -1481,89 +1365,9 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   /** @inheritDoc */
   async _onDelete(options, userId) {
     super._onDelete(options, userId);
+    await this.system.onDeleteActivities?.(options, userId);
     if ( userId !== game.user.id ) return;
-
-    // Delete a container's contents when it is deleted
-    const contents = await this.system.allContainedItems;
-    if ( contents?.size && options.deleteContents ) {
-      await Item.deleteDocuments(Array.from(contents.map(i => i.id)), { pack: this.pack, parent: this.parent });
-    }
-
-    // End concentration on any effects.
     this.parent?.endConcentration?.(this);
-
-    // Assign a new original class
-    if ( this.parent && (this.type === "class") && (this.id === this.parent.system.details.originalClass) ) {
-      this.parent._assignPrimaryClass();
-    }
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Pre-creation logic for the automatic configuration of owned equipment type Items.
-   *
-   * @param {object} data       Data for the newly created item.
-   * @param {boolean} isNPC     Is this actor an NPC?
-   * @returns {object}          Updates to apply to the item data.
-   * @private
-   */
-  _onCreateOwnedEquipment(data, isNPC) {
-    const updates = {};
-    if ( foundry.utils.getProperty(data, "system.equipped") === undefined ) {
-      updates["system.equipped"] = isNPC;  // NPCs automatically equip equipment
-    }
-    return updates;
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Pre-creation logic for the automatic configuration of owned spell type Items.
-   *
-   * @param {object} data       Data for the newly created item.
-   * @param {boolean} isNPC     Is this actor an NPC?
-   * @returns {object}          Updates to apply to the item data.
-   * @private
-   */
-  _onCreateOwnedSpell(data, isNPC) {
-    const updates = {};
-    if ( foundry.utils.getProperty(data, "system.preparation.prepared") === undefined ) {
-      updates["system.preparation.prepared"] = isNPC; // NPCs automatically prepare spells
-    }
-    return updates;
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Pre-creation logic for the automatic configuration of owned weapon type Items.
-   * @param {object} data       Data for the newly created item.
-   * @param {boolean} isNPC     Is this actor an NPC?
-   * @returns {object|void}     Updates to apply to the item data.
-   * @private
-   */
-  _onCreateOwnedWeapon(data, isNPC) {
-    if ( !isNPC ) return;
-    // NPCs automatically equip items.
-    const updates = {};
-    if ( !foundry.utils.hasProperty(data, "system.equipped") ) updates["system.equipped"] = true;
-    return updates;
-  }
-
-  /**
-   * Pre-creation logic for the automatic configuration of owned feature type Items.
-   * @param {object} data       Data for the newly created item.
-   * @param {boolean} isNPC     Is this actor an NPC?
-   * @returns {object}          Updates to apply to the item data.
-   * @private
-   */
-  _onCreateOwnedFeature(data, isNPC) {
-    const updates = {};
-    if ( isNPC && !foundry.utils.getProperty(data, "system.type.value") ) {
-      updates["system.type.value"] = "monster"; // Set features on NPCs to be 'monster features'.
-    }
-    return updates;
   }
 
   /* -------------------------------------------- */
@@ -1663,14 +1467,23 @@ export default class Item5e extends SystemDocumentMixin(Item) {
   /* -------------------------------------------- */
 
   /**
+   * @callback ItemContentsTransformer
+   * @param {Item5e|object} item        Data for the item to transform.
+   * @param {object} options
+   * @param {string} options.container  ID of the container to create the items.
+   * @param {number} options.depth      Current depth of the item being created.
+   * @returns {Item5e|object|void}
+   */
+
+  /**
    * Prepare creation data for the provided items and any items contained within them. The data created by this method
    * can be passed to `createDocuments` with `keepId` always set to true to maintain links to container contents.
    * @param {Item5e[]} items                     Items to create.
    * @param {object} [context={}]                Context for the item's creation.
    * @param {Item5e} [context.container]         Container in which to create the item.
    * @param {boolean} [context.keepId=false]     Should IDs be maintained?
-   * @param {Function} [context.transformAll]    Method called on provided items and their contents.
-   * @param {Function} [context.transformFirst]  Method called only on provided items.
+   * @param {ItemContentsTransformer} [context.transformAll]    Method called on provided items and their contents.
+   * @param {ItemContentsTransformer} [context.transformFirst]  Method called only on provided items.
    * @returns {Promise<object[]>}                Data for items to be created.
    */
   static async createWithContents(items, { container, keepId=false, transformAll, transformFirst }={}) {
@@ -1684,8 +1497,9 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     }
 
     const createItemData = async (item, containerId, depth) => {
-      let newItemData = transformAll ? await transformAll(item) : item;
-      if ( transformFirst && (depth === 0) ) newItemData = await transformFirst(newItemData);
+      const o = { container: containerId, depth };
+      let newItemData = transformAll ? await transformAll(item, o) : item;
+      if ( transformFirst && (depth === 0) ) newItemData = await transformFirst(newItemData, o);
       if ( !newItemData ) return;
       if ( newItemData instanceof Item ) newItemData = newItemData.toObject();
       foundry.utils.mergeObject(newItemData, {"system.container": containerId} );
@@ -1750,13 +1564,15 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     }
 
     // Get spell data
-    const flags = {};
     const itemData = (spell instanceof Item5e) ? spell.toObject() : spell;
+    const flags = itemData.flags ?? {};
     if ( Number.isNumeric(config.level) ) {
-      flags.dnd5e = { spellLevel: {
+      flags.dnd5e ??= {};
+      flags.dnd5e.scaling = Math.max(0, config.level - spell.system.level);
+      flags.dnd5e.spellLevel = {
         value: config.level,
         base: spell.system.level
-      } };
+      };
       itemData.system.level = config.level;
     }
 
@@ -1853,7 +1669,6 @@ export default class Item5e extends SystemDocumentMixin(Item) {
     // Create the spell scroll data
     const spellScrollData = foundry.utils.mergeObject(scrollData, {
       name: `${game.i18n.localize("DND5E.SpellScroll")}: ${itemData.name}`,
-      img: itemData.img,
       effects: itemData.effects ?? [],
       flags,
       system: {
@@ -1960,8 +1775,8 @@ export default class Item5e extends SystemDocumentMixin(Item) {
 
   /** @inheritDoc */
   static migrateData(source) {
-    ActivitiesTemplate.initializeActivities(source);
     source = super.migrateData(source);
+    ActivitiesTemplate.initializeActivities(source);
     if ( source.type === "class" ) ClassData._migrateTraitAdvancement(source);
     else if ( source.type === "container" ) ContainerData._migrateWeightlessData(source);
     else if ( source.type === "equipment" ) EquipmentData._migrateStealth(source);

@@ -45,6 +45,10 @@ export default class ShortRestDialog extends Dialog {
       context.availableHD = { [`d${hd.denomination}`]: hd.value };
       context.canRoll = hd.value > 0;
       context.denomination = `d${hd.denomination}`;
+      context.hdOptions = [{
+        value: context.denomination,
+        label: `${context.denomination} (${hd.value} ${game.i18n.localize("DND5E.available")})`
+      }];
     }
 
     else if ( foundry.utils.hasProperty(this.actor, "system.attributes.hd") ) {
@@ -54,6 +58,10 @@ export default class ShortRestDialog extends Dialog {
 
       const dice = Object.entries(context.availableHD);
       context.denomination = (context.availableHD[this._denom] > 0) ? this._denom : dice.find(([k, v]) => v > 0)?.[0];
+
+      context.hdOptions = Object.entries(context.availableHD).map(([value, number]) => ({
+        value, label: `${value} (${number} ${game.i18n.localize("DND5E.available")})`
+      }));
     }
 
     // Determine rest type

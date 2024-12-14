@@ -26,8 +26,14 @@ export default class FeatData extends ItemDataModel.mixin(
   ActivitiesTemplate, ItemDescriptionTemplate, ItemTypeTemplate
 ) {
 
+  /* -------------------------------------------- */
+  /*  Model Configuration                         */
+  /* -------------------------------------------- */
+
   /** @override */
-  static LOCALIZATION_PREFIXES = ["DND5E.ENCHANTMENT", "DND5E.Prerequisites"];
+  static LOCALIZATION_PREFIXES = ["DND5E.ENCHANTMENT", "DND5E.Prerequisites", "DND5E.SOURCE"];
+
+  /* -------------------------------------------- */
 
   /** @inheritDoc */
   static defineSchema() {
@@ -254,5 +260,19 @@ export default class FeatData extends ItemDataModel.mixin(
    */
   get proficiencyMultiplier() {
     return 1;
+  }
+
+  /* -------------------------------------------- */
+  /*  Socket Event Handlers                       */
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _preCreate(data, options, user) {
+    if ( (await super._preCreate(data, options, user)) === false ) return false;
+
+    // Set type as "Monster Feature" if created directly on a NPC
+    if ( (this.parent.actor?.type === "npc") && !foundry.utils.hasProperty(data, "system.type.value") ) {
+      this.updateSource({ "type.value": "monster" });
+    }
   }
 }

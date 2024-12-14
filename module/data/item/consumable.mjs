@@ -40,14 +40,14 @@ export default class ConsumableData extends ItemDataModel.mixin(
   /* -------------------------------------------- */
 
   /** @override */
-  static LOCALIZATION_PREFIXES = ["DND5E.CONSUMABLE"];
+  static LOCALIZATION_PREFIXES = ["DND5E.CONSUMABLE", "DND5E.SOURCE"];
 
   /* -------------------------------------------- */
 
   /** @inheritDoc */
   static defineSchema() {
     return this.mergeSchema(super.defineSchema(), {
-      type: new ItemTypeField({ value: "potion", baseItem: false }, { label: "DND5E.ItemConsumableType" }),
+      type: new ItemTypeField({ baseItem: false }, { label: "DND5E.ItemConsumableType" }),
       damage: new SchemaField({
         base: new DamageField(),
         replace: new BooleanField()
@@ -134,6 +134,8 @@ export default class ConsumableData extends ItemDataModel.mixin(
     ActivitiesTemplate._applyActivityShims.call(this);
     super.prepareDerivedData();
     this.prepareDescriptionData();
+    this.prepareIdentifiable();
+    this.preparePhysicalData();
     if ( !this.type.value ) return;
     const config = CONFIG.DND5E.consumableTypes[this.type.value];
     if ( config ) {
@@ -240,9 +242,47 @@ export default class ConsumableData extends ItemDataModel.mixin(
     const valid = super.validProperties;
     if ( this.type.value === "ammo" ) Object.entries(CONFIG.DND5E.itemProperties).forEach(([k, v]) => {
       if ( v.isPhysical ) valid.add(k);
+      valid.add("ret");
     });
     else if ( this.type.value === "scroll" ) CONFIG.DND5E.validProperties.spell
       .filter(p => p !== "material").forEach(p => valid.add(p));
     return valid;
+  }
+
+  /* -------------------------------------------- */
+  /*  Socket Event Handlers                       */
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _preUpdate(changed, options, user) {
+    if ( (await super._preUpdate(changed, options, user)) === false ) return false;
+    await this.preUpdateIdentifiable(changed, options, user);
+  }
+
+  /* -------------------------------------------- */
+  /*  Helpers                                     */
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async getCraftCost(options={}) {
+    const { days, gold } = await super.getCraftCost(options);
+    const { consumable, magic } = CONFIG.DND5E.crafting;
+    const { rarity } = this;
+    if ( !this.properties.has("mgc") || !(rarity in magic) ) return { days, gold };
+    const costs = magic[rarity];
+    return {
+      days: Math.floor(costs.days * consumable.days),
+      gold: Math.floor(costs.gold * consumable.gold)
+    };
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  getRollData(...options) {
+    const data = super.getRollData(...options);
+    const spellLevel = this.parent.getFlag("dnd5e", "spellLevel");
+    if ( spellLevel ) data.item.level = spellLevel.value ?? spellLevel.base;
+    return data;
   }
 }

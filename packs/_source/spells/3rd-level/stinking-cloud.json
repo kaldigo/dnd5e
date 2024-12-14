@@ -14,7 +14,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "activation": {
       "type": "action",
@@ -27,18 +28,22 @@
     },
     "target": {
       "affects": {
-        "choice": false
+        "choice": false,
+        "count": "",
+        "type": ""
       },
       "template": {
         "units": "ft",
         "type": "sphere",
         "size": "20",
-        "contiguous": false
+        "contiguous": false,
+        "count": ""
       }
     },
     "range": {
       "value": "90",
-      "units": "ft"
+      "units": "ft",
+      "special": ""
     },
     "uses": {
       "max": "",
@@ -120,7 +125,8 @@
         },
         "sort": 0
       }
-    }
+    },
+    "identifier": "stinking-cloud"
   },
   "sort": 0,
   "flags": {},
@@ -131,9 +137,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.0.0",
+    "systemVersion": "4.1.0",
     "createdTime": 1725037357164,
-    "modifiedTime": 1725037357164,
+    "modifiedTime": 1731016481960,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!TwlD4PLcltv7Xh7j"

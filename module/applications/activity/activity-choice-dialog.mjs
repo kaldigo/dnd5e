@@ -85,8 +85,10 @@ export default class ActivityChoiceDialog extends Application5e {
         `<img src="systems/dnd5e/icons/svg/mouse-left.svg" alt="${game.i18n.localize("DND5E.Controls.LeftClick")}">`
       );
     }
-    const activities = this.#item.system.activities.map(this._prepareActivityContext.bind(this));
-    activities.sort((a, b) => a.sort - b.sort);
+    const activities = this.#item.system.activities
+      .filter(a => !this.#item.getFlag("dnd5e", "riders.activity")?.includes(a.id) && a.canUse)
+      .map(this._prepareActivityContext.bind(this))
+      .sort((a, b) => a.sort - b.sort);
     return {
       ...await super._prepareContext(options),
       controlHint, activities
@@ -143,9 +145,9 @@ export default class ActivityChoiceDialog extends Application5e {
 
   /**
    * Display the activity choice dialog.
-   * @param {Item5e} item                       The Item whose activities are being chosen.
-   * @param {ApplicationConfiguration} options  Application configuration options.
-   * @returns {Promise<Activity|null>}          The chosen activity, or null if the dialog was dismissed.
+   * @param {Item5e} item                         The Item whose activities are being chosen.
+   * @param {ApplicationConfiguration} [options]  Application configuration options.
+   * @returns {Promise<Activity|null>}            The chosen activity, or null if the dialog was dismissed.
    */
   static create(item, options) {
     return new Promise(resolve => {

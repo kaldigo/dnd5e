@@ -10,20 +10,28 @@ const { ArrayField } = foundry.data.fields;
  * Data definition for Subclass items.
  * @mixes ItemDescriptionTemplate
  *
- * @property {string} identifier       Identifier slug for this subclass.
- * @property {string} classIdentifier  Identifier slug for the class with which this subclass should be associated.
  * @property {object[]} advancement    Advancement objects for this subclass.
+ * @property {string} classIdentifier  Identifier slug for the class with which this subclass should be associated.
  * @property {SpellcastingField} spellcasting  Details on subclass's spellcasting ability.
  */
 export default class SubclassData extends ItemDataModel.mixin(ItemDescriptionTemplate) {
+
+  /* -------------------------------------------- */
+  /*  Model Configuration                         */
+  /* -------------------------------------------- */
+
+  /** @override */
+  static LOCALIZATION_PREFIXES = ["DND5E.SOURCE"];
+
+  /* -------------------------------------------- */
+
   /** @inheritDoc */
   static defineSchema() {
     return this.mergeSchema(super.defineSchema(), {
-      identifier: new IdentifierField({ required: true, label: "DND5E.Identifier" }),
+      advancement: new ArrayField(new AdvancementField(), { label: "DND5E.AdvancementTitle" }),
       classIdentifier: new IdentifierField({
         required: true, label: "DND5E.ClassIdentifier", hint: "DND5E.ClassIdentifierHint"
       }),
-      advancement: new ArrayField(new AdvancementField(), { label: "DND5E.AdvancementTitle" }),
       spellcasting: new SpellcastingField()
     });
   }
@@ -92,12 +100,12 @@ export default class SubclassData extends ItemDataModel.mixin(ItemDescriptionTem
   /* -------------------------------------------- */
 
   /** @inheritDoc */
-  async _onCreate(data, options, userId) {
-    await super._onCreate(data, options, userId);
+  _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
     const actor = this.parent.actor;
     if ( !actor || (userId !== game.user.id) ) return;
     if ( !actor.system.attributes?.spellcasting && this.parent.spellcasting?.ability ) {
-      await actor.update({ "system.attributes.spellcasting": this.parent.spellcasting.ability });
+      actor.update({ "system.attributes.spellcasting": this.parent.spellcasting.ability });
     }
   }
 }

@@ -1,4 +1,29 @@
 import { ModuleArtConfig } from "./module-art.mjs";
+import CompendiumBrowserSourceConfig from "./applications/compendium-browser-source-config.mjs";
+import BastionConfig, { BastionSetting } from "./applications/bastion.mjs";
+import * as Bastion from "./documents/actor/bastion.mjs";
+
+/**
+ * Register all of the system's keybindings.
+ */
+export function registerSystemKeybindings() {
+  game.keybindings.register("dnd5e", "skipDialogNormal", {
+    name: "KEYBINDINGS.DND5E.SkipDialogNormal",
+    editable: [{ key: "ShiftLeft" }, { key: "ShiftRight" }]
+  });
+
+  game.keybindings.register("dnd5e", "skipDialogAdvantage", {
+    name: "KEYBINDINGS.DND5E.SkipDialogAdvantage",
+    editable: [{ key: "AltLeft" }, { key: "AltRight" }]
+  });
+
+  game.keybindings.register("dnd5e", "skipDialogDisadvantage", {
+    name: "KEYBINDINGS.DND5E.SkipDialogDisadvantage",
+    editable: [{ key: "ControlLeft" }, { key: "ControlRight" }, { key: "OsLeft" }, { key: "OsRight" }]
+  });
+}
+
+/* -------------------------------------------- */
 
 /**
  * Register all of the system's settings.
@@ -367,6 +392,47 @@ export function registerSystemSettings() {
     }
   });
 
+  // Compendium Browser source exclusion
+  game.settings.registerMenu("dnd5e", "packSourceConfiguration", {
+    name: "DND5E.CompendiumBrowser.Sources.Name",
+    label: "DND5E.CompendiumBrowser.Sources.Label",
+    hint: "DND5E.CompendiumBrowser.Sources.Hint",
+    icon: "fas fa-book-open-reader",
+    type: CompendiumBrowserSourceConfig,
+    restricted: true
+  });
+
+  game.settings.register("dnd5e", "packSourceConfiguration", {
+    name: "Pack Source Configuration",
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
+  // Bastions
+  game.settings.registerMenu("dnd5e", "bastionConfiguration", {
+    name: "DND5E.Bastion.Configuration.Name",
+    label: "DND5E.Bastion.Configuration.Label",
+    hint: "DND5E.Bastion.Configuration.Hint",
+    icon: "fas fa-chess-rook",
+    type: BastionConfig,
+    restricted: true
+  });
+
+  game.settings.register("dnd5e", "bastionConfiguration", {
+    name: "Bastion Configuration",
+    scope: "world",
+    config: false,
+    type: BastionSetting,
+    default: {
+      button: false,
+      enabled: false,
+      duration: 7
+    },
+    onChange: () => game.dnd5e.bastion.initializeUI()
+  });
+
   // Primary Group
   game.settings.register("dnd5e", "primaryParty", {
     name: "Primary Party",
@@ -440,22 +506,25 @@ export function registerDeferredSettings() {
   });
 
   // Hook into core color scheme setting.
-  const setting = game.settings.settings.get("core.colorScheme");
-  const { onChange } = setting ?? {};
-  if ( onChange ) setting.onChange = s => {
+  const isV13 = game.release.generation >= 13;
+  const settingKey = isV13 ? "uiConfig" : "colorScheme";
+  const setting = game.settings.get("core", settingKey);
+  const settingConfig = game.settings.settings.get(`core.${settingKey}`);
+  const { onChange } = settingConfig ?? {};
+  if ( onChange ) settingConfig.onChange = s => {
     onChange();
-    setTheme(document.body, s);
+    setTheme(document.body, isV13 ? s.colorScheme : s);
   };
-  setTheme(document.body, game.settings.get("core", "colorScheme"));
+  setTheme(document.body, isV13 ? setting.colorScheme : setting);
 }
 
 /* -------------------------------------------- */
 
 /**
  * Set the theme on an element, removing the previous theme class in the process.
- * @param {HTMLElement} element  Body or sheet element on which to set the theme data.
- * @param {string} [theme=""]    Theme key to set.
- * @param {string[]} [flags=[]]  Additional theming flags to set.
+ * @param {HTMLElement} element     Body or sheet element on which to set the theme data.
+ * @param {string} [theme=""]       Theme key to set.
+ * @param {Set<string>} [flags=[]]  Additional theming flags to set.
  */
 export function setTheme(element, theme="", flags=new Set()) {
   element.className = element.className.replace(/\bdnd5e-(theme|flag)-[\w-]+\b/g, "");

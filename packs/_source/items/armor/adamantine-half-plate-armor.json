@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -60,11 +61,13 @@
     },
     "container": null,
     "properties": [
+      "ada",
       "mgc",
       "stealthDisadvantage"
     ],
     "activities": {},
-    "attuned": false
+    "attuned": false,
+    "identifier": "adamantine-half-plate-armor"
   },
   "effects": [],
   "folder": "JqTP017wj3uxDJ8g",
@@ -77,9 +80,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.0.0",
+    "systemVersion": "4.1.0",
     "createdTime": 1725037084216,
-    "modifiedTime": 1725037084216,
+    "modifiedTime": 1728002231951,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!159agyOuBHCl2WKd"

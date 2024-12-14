@@ -1,8 +1,8 @@
 {
   "_id": "5Rxo4K9cgpwgW9vZ",
   "name": "Wand of Enemy Detection",
-  "type": "consumable",
-  "img": "icons/weapons/staves/staff-simple-green.webp",
+  "type": "equipment",
+  "img": "icons/weapons/wands/wand-simple-eye.webp",
   "system": {
     "description": {
       "value": "<p><em>(Requires attunement)</em></p>\n<p>This wand has 7 charges. While holding it, you can use an action and expend 1 charge to speak its command word. For the next minute, you know the direction of the nearest creature hostile to you within 60 feet, but not its distance from you. The wand can sense the presence of hostile creatures that are ethereal, invisible, disguised, or hidden, as well as those in plain sight. The effect ends if you stop holding the wand.</p>\n<p>The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand's last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed.</p>",
@@ -12,7 +12,8 @@
       "custom": "",
       "book": "SRD 5.1",
       "page": "",
-      "license": "CC-BY-4.0"
+      "license": "CC-BY-4.0",
+      "rules": "2014"
     },
     "quantity": 1,
     "weight": {
@@ -62,167 +63,83 @@
     },
     "container": null,
     "properties": [
+      "foc",
       "mgc"
     ],
     "magicalBonus": null,
     "activities": {
-      "dnd5eactivity000": {
-        "_id": "dnd5eactivity000",
+      "8rw7aoQH53r3yP40": {
         "type": "utility",
+        "_id": "8rw7aoQH53r3yP40",
+        "sort": 0,
         "activation": {
           "type": "action",
-          "value": 1,
-          "condition": "Command word.",
-          "override": false
+          "value": null,
+          "override": false,
+          "condition": ""
         },
         "consumption": {
+          "scaling": {
+            "allowed": false
+          },
+          "spellSlot": true,
           "targets": [
             {
               "type": "itemUses",
-              "target": "",
               "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
+              "target": "",
+              "scaling": {}
             }
-          ],
-          "scaling": {
-            "allowed": false,
-            "max": ""
-          },
-          "spellSlot": true
+          ]
         },
         "description": {
           "chatFlavor": ""
         },
         "duration": {
+          "units": "inst",
           "concentration": false,
-          "value": "",
-          "units": "",
-          "special": "",
           "override": false
         },
         "effects": [],
         "range": {
-          "value": "60",
+          "override": false,
           "units": "ft",
           "special": "",
-          "override": false
+          "value": "60"
         },
         "target": {
           "template": {
-            "count": "",
             "contiguous": false,
-            "type": "",
-            "size": "",
-            "width": "",
-            "height": "",
-            "units": ""
+            "units": "ft",
+            "type": ""
           },
           "affects": {
-            "count": "",
-            "type": "",
             "choice": false,
+            "count": "1",
+            "type": "enemy",
             "special": ""
           },
-          "prompt": true,
-          "override": false
+          "override": false,
+          "prompt": true
+        },
+        "uses": {
+          "spent": 0,
+          "recovery": [],
+          "max": ""
         },
         "roll": {
-          "formula": "1d6 +1",
-          "name": "",
           "prompt": false,
-          "visible": false
+          "visible": false,
+          "name": "",
+          "formula": ""
         },
-        "uses": {
-          "spent": 0,
-          "recovery": []
-        },
-        "sort": 0
-      },
-      "dnd5eactivity100": {
-        "_id": "dnd5eactivity100",
-        "type": "save",
-        "activation": {
-          "type": "action",
-          "value": 1,
-          "condition": "Command word.",
-          "override": false
-        },
-        "consumption": {
-          "targets": [
-            {
-              "type": "itemUses",
-              "target": "",
-              "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
-            }
-          ],
-          "scaling": {
-            "allowed": false,
-            "max": ""
-          },
-          "spellSlot": true
-        },
-        "description": {
-          "chatFlavor": ""
-        },
-        "duration": {
-          "concentration": false,
-          "value": "",
-          "units": "",
-          "special": "",
-          "override": false
-        },
-        "effects": [],
-        "range": {
-          "value": "60",
-          "units": "ft",
-          "special": "",
-          "override": false
-        },
-        "target": {
-          "template": {
-            "count": "",
-            "contiguous": false,
-            "type": "",
-            "size": "",
-            "width": "",
-            "height": "",
-            "units": ""
-          },
-          "affects": {
-            "count": "",
-            "type": "",
-            "choice": false,
-            "special": ""
-          },
-          "prompt": true,
-          "override": false
-        },
-        "damage": {
-          "onSave": "half",
-          "parts": []
-        },
-        "save": {
-          "ability": "wis",
-          "dc": {
-            "calculation": "",
-            "formula": ""
-          }
-        },
-        "uses": {
-          "spent": 0,
-          "recovery": []
-        },
-        "sort": 0
+        "name": "Detect Enemy",
+        "img": "",
+        "appliedEffects": []
       }
     },
-    "attuned": false
+    "attuned": false,
+    "identifier": "wand-of-enemy-detection"
   },
   "effects": [],
   "folder": "1aDgsGVwDbPdxG2V",
@@ -230,14 +147,21 @@
   "ownership": {
     "default": 0
   },
-  "flags": {},
+  "flags": {
+    "dnd5e": {
+      "riders": {
+        "activity": [],
+        "effect": []
+      }
+    }
+  },
   "_stats": {
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.0.0",
+    "systemVersion": "4.1.0",
     "createdTime": 1725037100973,
-    "modifiedTime": 1725037100973,
+    "modifiedTime": 1731015765246,
     "lastModifiedBy": "dnd5ebuilder0000"
   },
   "_key": "!items!5Rxo4K9cgpwgW9vZ"

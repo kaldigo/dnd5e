@@ -1,5 +1,4 @@
 import CompendiumBrowser from "./applications/compendium-browser.mjs";
-import EnchantActivity from "./documents/activity/enchant.mjs";
 
 /* -------------------------------------------- */
 /*  Enchantments                                */
@@ -22,17 +21,14 @@ class EnchantmentRegisty {
    */
   static applied(uuid) {
     const source = fromUuidSync(uuid);
-    if ( source instanceof EnchantActivity ) {
-      return Array.from(EnchantmentRegisty.#appliedEnchantments.get(uuid) ?? [])
-        .map(uuid => fromUuidSync(uuid))
-        .filter(i => i);
-    }
     if ( source instanceof Item ) {
       return source.system.activities?.getByType("enchant")
         .map(a => EnchantmentRegisty.applied(a.uuid))
         .flat() ?? [];
     }
-    return [];
+    return Array.from(EnchantmentRegisty.#appliedEnchantments.get(uuid) ?? [])
+      .map(uuid => fromUuidSync(uuid))
+      .filter(effect => effect?.isAppliedEnchantment);
   }
 
   /* -------------------------------------------- */
@@ -161,7 +157,10 @@ class ItemRegistry {
   async initialize() {
     if ( this.#status > ItemRegistry.#STATUS_STATES.NONE ) return;
     RegistryStatus.set(this.#itemType, false);
-    if ( !game.ready ) {
+    if ( game.modules.get("babele")?.active && (game.babele?.initialized === false) ) {
+      Hooks.once("babele.ready", () => this.initialize());
+      return;
+    } else if ( !game.ready ) {
       Hooks.once("ready", () => this.initialize());
       return;
     }

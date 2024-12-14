@@ -1,4 +1,4 @@
-import Application5e from "../api/application.mjs";
+import Dialog5e from "../api/dialog.mjs";
 
 const { DiceTerm } = foundry.dice.terms;
 
@@ -6,10 +6,19 @@ const { DiceTerm } = foundry.dice.terms;
  * Dialog rendering options for a roll configuration dialog.
  *
  * @typedef {object} BasicRollConfigurationDialogOptions
- * @property {typeof BasicRoll} rollType  Roll type to use when constructing final roll.
+ * @property {typeof BasicRoll} rollType              Roll type to use when constructing final roll.
  * @property {object} [default]
- * @property {number} [default.rollMode]  Default roll mode to have selected.
+ * @property {number} [default.rollMode]              Default roll mode to have selected.
+ * @property {RollBuildConfigCallback} [buildConfig]  Callback to handle additional build configuration.
  * @property {BasicRollConfigurationDialogRenderOptions} [rendering]
+ */
+
+/**
+ * @callback RollBuildConfigCallback
+ * @param {BasicRollProcessConfiguration} process  Configuration for the entire rolling process.
+ * @param {BasicRollConfiguration} config          Configuration for a specific roll.
+ * @param {FormDataExtended} [formData]            Any data entered into the rolling prompt.
+ * @param {number} index                           Index of the roll within all rolls being prepared.
  */
 
 /**
@@ -30,7 +39,7 @@ const { DiceTerm } = foundry.dice.terms;
  * @param {BasicRollMessageConfiguration} [message={}]        Message configuration.
  * @param {BasicRollConfigurationDialogOptions} [options={}]  Dialog rendering options.
  */
-export default class RollConfigurationDialog extends Application5e {
+export default class RollConfigurationDialog extends Dialog5e {
   constructor(config={}, message={}, options={}) {
     super(options);
 
@@ -44,11 +53,9 @@ export default class RollConfigurationDialog extends Application5e {
   /** @override */
   static DEFAULT_OPTIONS = {
     classes: ["roll-configuration"],
-    tag: "form",
     window: {
       title: "DND5E.RollConfiguration.Title",
-      icon: "fa-solid fa-dice",
-      minimizable: false
+      icon: "fa-solid fa-dice"
     },
     form: {
       handler: RollConfigurationDialog.#handleFormSubmission
@@ -56,6 +63,7 @@ export default class RollConfigurationDialog extends Application5e {
     position: {
       width: 400
     },
+    buildConfig: null,
     rendering: {
       dice: {
         max: 5,
@@ -147,7 +155,7 @@ export default class RollConfigurationDialog extends Application5e {
    * @protected
    */
   _identifyDiceTerms() {
-    const dice = [];
+    let dice = [];
     let shouldDisplay = true;
 
     /**
@@ -164,7 +172,8 @@ export default class RollConfigurationDialog extends Application5e {
       if ( !this.options.rendering.dice.denominations.has(term.denomination) ) return shouldDisplay = false;
       for ( let i = 0; i < term.number; i++ ) dice.push({
         icon: `systems/dnd5e/icons/svg/dice/${term.denomination}.svg`,
-        label: term.denomination
+        label: term.denomination,
+        denomination: term.denomination
       });
     };
 
@@ -180,7 +189,17 @@ export default class RollConfigurationDialog extends Application5e {
     };
 
     this.rolls.forEach(roll => identifyDice(roll.terms));
-    if ( !dice.length || (dice.length > this.options.rendering.dice.max) ) shouldDisplay = false;
+    if ( dice.length > this.options.rendering.dice.max ) {
+      // Compact dice display.
+      const byDenom = dice.reduce((obj, { icon, denomination }) => {
+        obj[denomination] ??= { icon, count: 0 };
+        obj[denomination].count++;
+        return obj;
+      }, {});
+      dice = Object.entries(byDenom).map(([d, { icon, count }]) => ({ icon, label: `${count}${d}` }));
+      if ( dice.length > this.options.rendering.dice.max ) shouldDisplay = false;
+    }
+    else if ( !dice.length ) shouldDisplay = false;
     return shouldDisplay ? dice : [];
   }
 
@@ -207,13 +226,14 @@ export default class RollConfigurationDialog extends Application5e {
    * Prepare the context for the buttons.
    * @param {ApplicationRenderContext} context  Shared context provided by _prepareContext.
    * @param {HandlebarsRenderOptions} options   Options which configure application rendering behavior.
-   * @returns {ApplicationRenderContext}
+   * @returns {Promise<ApplicationRenderContext>}
    * @protected
    */
-  _prepareButtonsContext(context, options) {
+  async _prepareButtonsContext(context, options) {
     context.buttons = {
       roll: {
-        icon: '<i class="fa-solid fa-dice"></i>',
+        default: true,
+        icon: '<i class="fa-solid fa-dice" inert></i>',
         label: game.i18n.localize("DND5E.Roll")
       }
     };
@@ -226,15 +246,15 @@ export default class RollConfigurationDialog extends Application5e {
    * Prepare the context for the roll configuration section.
    * @param {ApplicationRenderContext} context  Shared context provided by _prepareContext.
    * @param {HandlebarsRenderOptions} options   Options which configure application rendering behavior.
-   * @returns {ApplicationRenderContext}
+   * @returns {Promise<ApplicationRenderContext>}
    * @protected
    */
-  _prepareConfigurationContext(context, options) {
+  async _prepareConfigurationContext(context, options) {
     context.fields = [{
       field: new foundry.data.fields.StringField({ label: game.i18n.localize("DND5E.RollMode") }),
       name: "rollMode",
-      value: this.message.rollMode ?? this.options.default?.rollMode,
-      options: Object.entries(CONFIG.Dice.rollModes).map(([value, l]) => ({ value, label: game.i18n.localize(l) }))
+      value: this.message.rollMode ?? this.options.default?.rollMode ?? game.settings.get("core", "rollMode"),
+      options: Object.entries(CONFIG.Dice.rollModes).map(([value, l]) => ({ value, label: game.i18n.localize(`${l}`) }))
     }];
     return context;
   }
@@ -245,12 +265,11 @@ export default class RollConfigurationDialog extends Application5e {
    * Prepare the context for the formulas list.
    * @param {ApplicationRenderContext} context  Shared context provided by _prepareContext.
    * @param {HandlebarsRenderOptions} options   Options which configure application rendering behavior.
-   * @returns {ApplicationRenderContext}
+   * @returns {Promise<ApplicationRenderContext>}
    * @protected
    */
-  _prepareFormulasContext(context, options) {
-    context.rolls = this.rolls;
-    context.situational = this.rolls[0].data.situational;
+  async _prepareFormulasContext(context, options) {
+    context.rolls = this.rolls.map(roll => ({ roll }));
     context.dice = this._identifyDiceTerms() || [];
     return context;
   }
@@ -267,7 +286,7 @@ export default class RollConfigurationDialog extends Application5e {
   #buildRolls(config, formData) {
     const RollType = this.rollType;
     this.#rolls = config.rolls?.map((config, index) =>
-      RollType.fromConfig(this._buildConfig(config, formData, index))
+      RollType.fromConfig(this._buildConfig(config, formData, index), this.config)
     ) ?? [];
   }
 
@@ -295,10 +314,15 @@ export default class RollConfigurationDialog extends Application5e {
      */
     Hooks.callAll("dnd5e.buildRollConfig", this, config, formData, index);
 
-    if ( formData?.get("situational") && (config.situational !== false) ) {
+    const situational = formData?.get(`roll.${index}.situational`);
+    if ( situational && (config.situational !== false) ) {
       config.parts.push("@situational");
-      config.data.situational = formData.get("situational");
+      config.data.situational = situational;
+    } else {
+      config.parts.findSplice(v => v === "@situational");
     }
+
+    this.options.buildConfig?.(this.config, config, formData, index);
 
     return config;
   }
@@ -336,6 +360,7 @@ export default class RollConfigurationDialog extends Application5e {
    * @param {FormDataExtended} formData  Data from the dialog.
    */
   static async #handleFormSubmission(event, form, formData) {
+    if ( formData.has("rollMode") ) this.message.rollMode = formData.get("rollMode");
     this.#rolls = this._finalizeRolls(event.submitter?.dataset?.action);
     await this.close({ dnd5e: { submitted: true } });
   }
@@ -346,7 +371,7 @@ export default class RollConfigurationDialog extends Application5e {
   _onChangeForm(formConfig, event) {
     super._onChangeForm(formConfig, event);
 
-    const formData = new FormDataExtended(this.element);
+    const formData = new FormDataExtended(this.form);
     if ( formData.has("rollMode") ) this.message.rollMode = formData.get("rollMode");
     this.#buildRolls(foundry.utils.deepClone(this.#config), formData);
     this.render({ parts: ["formulas"] });
@@ -365,9 +390,9 @@ export default class RollConfigurationDialog extends Application5e {
 
   /**
    * A helper to handle displaying and responding to the dialog.
-   * @param {BasicRollProcessConfiguration} [config]        Initial roll configuration.
-   * @param {BasicRollConfigurationDialogOptions} [dialog]  Dialog configuration options.
-   * @param {BasicRollMessageConfiguration} [message]       Message configuration.
+   * @param {BasicRollProcessConfiguration} [config]   Initial roll configuration.
+   * @param {BasicRollDialogConfiguration} [dialog]    Dialog configuration options.
+   * @param {BasicRollMessageConfiguration} [message]  Message configuration.
    * @returns {Promise<BasicRoll[]>}
    */
   static async configure(config={}, dialog={}, message={}) {

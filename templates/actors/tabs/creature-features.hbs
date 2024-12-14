@@ -46,7 +46,8 @@
                         {{!-- Item Name --}}
                         <div class="item-name item-action item-tooltip {{ @root.rollableClass }}" role="button"
                              data-action="use" aria-label="{{ item.name }}">
-                            <img class="item-image gold-icon" src="{{ item.img }}" alt="{{ item.name }}">
+                            <img class="item-image gold-icon" src="{{ item.img }}" alt="{{ item.name }}"
+                                 draggable="false">
                             <div class="name name-stacked">
                                 <span class="title">{{ item.name }}</span>
                                 {{#if ctx.subtitle}}
@@ -74,7 +75,7 @@
                         <div class="wrapper">
 
                             {{!-- Activities --}}
-                            {{#if (gt ctx.activities.length 1)}}
+                            {{#if ctx.activities.length}}
                             <div class="activities">
                                 {{#each ctx.activities}}
                                 {{> "dnd5e.activity-row-summary" categories=../../categories }}

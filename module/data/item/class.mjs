@@ -1,7 +1,6 @@
 import TraitAdvancement from "../../documents/advancement/trait.mjs";
 import { ItemDataModel } from "../abstract.mjs";
 import AdvancementField from "../fields/advancement-field.mjs";
-import IdentifierField from "../fields/identifier-field.mjs";
 import SpellcastingField from "./fields/spellcasting-field.mjs";
 import ItemDescriptionTemplate from "./templates/item-description.mjs";
 import StartingEquipmentTemplate from "./templates/starting-equipment.mjs";
@@ -13,7 +12,6 @@ const { ArrayField, BooleanField, NumberField, SchemaField, SetField, StringFiel
  * @mixes ItemDescriptionTemplate
  * @mixes StartingEquipmentTemplate
  *
- * @property {string} identifier                Identifier slug for this class.
  * @property {number} levels                    Current number of levels in this class.
  * @property {object} primaryAbility
  * @property {Set<string>} primaryAbility.value List of primary abilities used by this class.
@@ -31,14 +29,13 @@ export default class ClassData extends ItemDataModel.mixin(ItemDescriptionTempla
   /* -------------------------------------------- */
 
   /** @override */
-  static LOCALIZATION_PREFIXES = ["DND5E.CLASS"];
+  static LOCALIZATION_PREFIXES = ["DND5E.CLASS", "DND5E.SOURCE"];
 
   /* -------------------------------------------- */
 
   /** @inheritDoc */
   static defineSchema() {
     return this.mergeSchema(super.defineSchema(), {
-      identifier: new IdentifierField({ required: true, label: "DND5E.Identifier" }),
       levels: new NumberField({ required: true, nullable: false, integer: true, min: 0, initial: 1 }),
       primaryAbility: new SchemaField({
         value: new SetField(new StringField()),
@@ -226,6 +223,46 @@ export default class ClassData extends ItemDataModel.mixin(ItemDescriptionTempla
 
     if ( !actor.system.attributes?.spellcasting && this.parent.spellcasting?.ability ) {
       await actor.update({ "system.attributes.spellcasting": this.parent.spellcasting.ability });
+    }
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  async _preUpdate(changed, options, user) {
+    if ( (await super._preUpdate(changed, options, user)) === false ) return false;
+    if ( !("levels" in (changed.system ?? {})) ) return;
+
+    // Check to make sure the updated class level isn't below zero
+    if ( changed.system.levels <= 0 ) {
+      ui.notifications.warn("DND5E.MaxClassLevelMinimumWarn", { localize: true });
+      changed.system.levels = 1;
+    }
+
+    // Check to make sure the updated class level doesn't exceed level cap
+    if ( changed.system.levels > CONFIG.DND5E.maxLevel ) {
+      ui.notifications.warn(game.i18n.format("DND5E.MaxClassLevelExceededWarn", { max: CONFIG.DND5E.maxLevel }));
+      changed.system.levels = CONFIG.DND5E.maxLevel;
+    }
+
+    if ( this.parent.actor?.type !== "character" ) return;
+
+    // Check to ensure the updated character doesn't exceed level cap
+    const newCharacterLevel = this.parent.actor.system.details.level + (changed.system.levels - this.levels);
+    if ( newCharacterLevel > CONFIG.DND5E.maxLevel ) {
+      ui.notifications.warn(game.i18n.format("DND5E.MaxCharacterLevelExceededWarn", { max: CONFIG.DND5E.maxLevel }));
+      changed.system.levels -= newCharacterLevel - CONFIG.DND5E.maxLevel;
+    }
+  }
+
+  /* -------------------------------------------- */
+
+  /** @inheritDoc */
+  _onDelete(options, userId) {
+    super._onDelete(options, userId);
+    if ( userId !== game.user.id ) return;
+    if ( this.parent.id === this.parent.actor?.system.details?.originalClass ) {
+      this.parent.actor._assignPrimaryClass();
     }
   }
 }

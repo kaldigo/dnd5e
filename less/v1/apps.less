@@ -144,35 +144,6 @@ h5 {
 
 
 /* ----------------------------------------- */
-/*  Hit Dice Config Sheet Specifically       */
-/* ----------------------------------------- */
-
-.dnd5e.hd-config {
-  .form-group {
-    button.increment, button.decrement {
-      flex: 0 0 1rem;
-      line-height: 1rem;
-    }
-
-    button.decrement {
-      margin-right: 0;
-    }
-
-    span.sep {
-      margin: 0;
-    }
-
-    input {
-      flex: 0 0 2rem;
-      text-align: center;
-      margin-left: 2px;
-      margin-right: 2px;
-    }
-  }
-}
-
-
-/* ----------------------------------------- */
 /*  Entity Sheets Specifically               */
 /* ----------------------------------------- */
 
@@ -845,8 +816,13 @@ h5 {
 /*  Token Heads-Up Display                   */
 /* ----------------------------------------- */
 
-#token-hud .status-effects .effect-control.active:not(.overlay) {
-  border: 1px solid green;
+#token-hud .status-effects {
+  width: max-content;
+  grid-template-columns: repeat(5, 25px);
+
+  .effect-control.active:not(.overlay) {
+    border: 1px solid green;
+  }
 }
 
 /* ----------------------------------------- */

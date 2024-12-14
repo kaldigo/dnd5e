@@ -17,7 +17,7 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
       legacyDisplay: false,
       contextMenu: ContextMenu5e
     });
-    options.dragDrop.push({ dragSelector: ".activity[data-id]", dropSelector: "form" });
+    options.dragDrop.push({ dragSelector: ".activity[data-activity-id]", dropSelector: "form" });
     return options;
   }
 
@@ -35,7 +35,7 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
   /** @inheritDoc */
   async getData(options) {
     const context = await super.getData(options);
-    const { activities, spellcasting } = this.item.system;
+    const { activities, building, craft, order, spellcasting, type } = this.item.system;
     const target = this.item.type === "spell" ? this.item.system.target : null;
 
     // Effects
@@ -135,10 +135,50 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
     }));
 
     // Activities
-    context.activities = (activities ?? []).map(({ _id: id, name, img, sort }) => ({
+    context.activities = (activities ?? []).filter(a => {
+      return CONFIG.DND5E.activityTypes[a.type]?.configurable !== false;
+    }).map(({ _id: id, name, img, sort }) => ({
       id, name, sort,
       img: { src: img, svg: img?.endsWith(".svg") }
-    })).sort((a, b) => a.sort - b.sort);
+    }));
+
+    // Facilities
+    if ( this.item.type === "facility" ) {
+      context.orders = Object.entries(CONFIG.DND5E.facilities.orders).reduce((obj, [value, config]) => {
+        const { label, basic, hidden } = config;
+        if ( hidden ) return obj;
+        // TODO: More hard-coding that we can potentially avoid.
+        if ( value === "build" ) {
+          if ( !building.built ) obj.executable.push({ value, label });
+          return obj;
+        }
+        if ( value === "change" ) {
+          if ( type.subtype === "garden" ) obj.executable.push({ value, label });
+          return obj;
+        }
+        if ( type.value === "basic" ) {
+          if ( !building.built ) return obj;
+          if ( basic ) obj.executable.push({ value, label });
+        } else if ( (type.value === "special") && !basic ) {
+          obj.available.push({ value, label });
+          if ( (value === order) || (value === "maintain") ) obj.executable.push({ value, label });
+        }
+        return obj;
+      }, { available: [], executable: [] });
+    }
+
+    if ( (type?.value === "special") && ((order === "craft") || (order === "harvest")) ) {
+      context.canCraft = true;
+      context.isHarvesting = order === "harvest";
+      const crafting = await fromUuid(craft.item);
+      if ( crafting ) {
+        context.craft = {
+          img: crafting.img,
+          name: crafting.name,
+          contentLink: crafting.toAnchor().outerHTML
+        };
+      }
+    }
 
     return context;
   }
@@ -195,47 +235,9 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
       html.find("button.control-button").on("click", this._onSheetAction.bind(this));
     }
 
-    new ContextMenu5e(html, ".activity[data-id]", [], { onOpen: this._onOpenActivityContext.bind(this) });
-  }
-
-  /* -------------------------------------------- */
-
-  /**
-   * Construct context menu options for a given Activity.
-   * @param {Activity} activity  The Activity.
-   * @returns {ContextMenuEntry[]}
-   * @protected
-   */
-  _getActivityContextMenuOptions(activity) {
-    const entries = [];
-
-    if ( this.isEditable ) {
-      entries.push({
-        name: "DND5E.ContextMenuActionEdit",
-        icon: '<i class="fas fa-pen-to-square fa-fw"></i>',
-        callback: () => activity.sheet.render({ force: true })
-      }, {
-        name: "DND5E.ContextMenuActionDuplicate",
-        icon: '<i class="fas fa-copy fa-fw"></i>',
-        callback: () => {
-          const createData = activity.toObject();
-          delete createData._id;
-          this.item.createActivity(createData.type, createData, { renderSheet: false });
-        }
-      }, {
-        name: "DND5E.ContextMenuActionDelete",
-        icon: '<i class="fas fa-trash fa-fw"></i>',
-        callback: () => activity.deleteDialog()
-      });
-    } else {
-      entries.push({
-        name: "DND5E.ContextMenuActionView",
-        icon: '<i class="fas fa-eye fa-fw"></i>',
-        callback: () => activity.sheet.render({ force: true })
-      });
-    }
-
-    return entries;
+    new ContextMenu5e(html, ".activity[data-activity-id]", [], {
+      onOpen: target => dnd5e.documents.activity.UtilityActivity.onContextMenu(this.item, target)
+    });
   }
 
   /* -------------------------------------------- */
@@ -258,8 +260,8 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
    * @protected
    */
   _onDeleteActivity(target) {
-    const { id } = target.closest("[data-id]").dataset;
-    const activity = this.item.system.activities.get(id);
+    const { activityId } = target.closest("[data-activity-id]").dataset;
+    const activity = this.item.system.activities.get(activityId);
     return activity?.deleteDialog();
   }
 
@@ -286,34 +288,20 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
    * @protected
    */
   _onEditActivity(event) {
-    const { id } = event.currentTarget.closest("[data-id]").dataset;
-    const activity = this.item.system.activities.get(id);
+    const { activityId } = event.currentTarget.closest("[data-activity-id]").dataset;
+    const activity = this.item.system.activities.get(activityId);
     return activity?.sheet?.render({ force: true });
   }
 
   /* -------------------------------------------- */
 
   /**
-   * Handle opening the context menu on an Activity.
-   * @param {HTMLElement} target  The element the menu was triggered for.
+   * Handle removing the Item currently being crafted.
+   * @returns {Promise}
    * @protected
    */
-  _onOpenActivityContext(target) {
-    const { id } = target.closest(".activity[data-id]")?.dataset ?? {};
-    const activity = this.item.system.activities.get(id);
-    if ( !activity ) return;
-    const menuItems = this._getActivityContextMenuOptions(activity);
-
-    /**
-     * A hook even that fires when the context menu for an Activity is opened.
-     * @function dnd5e.getItemActivityContext
-     * @memberof hookEvents
-     * @param {Activity} activity             The Activity.
-     * @param {HTMLElement} target            The element that menu was triggered for.
-     * @param {ContextMenuEntry[]} menuItems  The context menu entries.
-     */
-    Hooks.callAll("dnd5e.getItemActivityContext", activity, target, menuItems);
-    ui.context.menuItems = menuItems;
+  _onRemoveCraft() {
+    return this.submit({ updateData: { "system.craft": null } });
   }
 
   /* -------------------------------------------- */
@@ -331,6 +319,7 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
       case "addRecovery": return this._onAddRecovery();
       case "deleteActivity": return this._onDeleteActivity(target);
       case "deleteRecovery": return this._onDeleteRecovery(target);
+      case "removeCraft": return this._onRemoveCraft();
     }
   }
 
@@ -351,8 +340,8 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
 
   /** @override */
   _onDragStart(event) {
-    const { id } = event.target.closest(".activity[data-id]")?.dataset ?? {};
-    const activity = this.item.system.activities.get(id);
+    const { activityId } = event.target.closest(".activity[data-activity-id]")?.dataset ?? {};
+    const activity = this.item.system.activities?.get(activityId);
     if ( !activity ) return super._onDragStart(event);
     event.dataTransfer.setData("text/plain", JSON.stringify(activity.toDragData()));
   }
@@ -372,7 +361,7 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
 
     // Reordering
     if ( source ) {
-      const targetId = event.target.closest(".activity[data-id]")?.dataset.id;
+      const targetId = event.target.closest(".activity[data-activity-id]")?.dataset.activityId;
       const target = this.item.system.activities.get(targetId);
       if ( !target || (target === source) ) return;
       const siblings = this.item.system.activities.filter(a => a._id !== id);
@@ -388,6 +377,30 @@ export default class ItemSheet5e2 extends ItemSheetV2Mixin(ItemSheet5e) {
       delete data._id;
       this.item.createActivity(type, data, { renderSheet: false });
     }
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Handle dropping another item onto this item.
+   * @param {DragEvent} event  The drag event.
+   * @param {object} data      The dropped data.
+   */
+  async _onDropItem(event, data) {
+    const item = await Item.implementation.fromDropData(data);
+    if ( (item?.type === "spell") && this.item.system.activities ) this._onDropSpell(event, item);
+    else this._onDropAdvancement(event, data);
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Handle creating a "Cast" activity when dropping a spell.
+   * @param {DragEvent} event  The drag event.
+   * @param {Item5e} item      The dropped item.
+   */
+  _onDropSpell(event, item) {
+    this.item.createActivity("cast", { spell: { uuid: item.uuid } });
   }
 
   /* -------------------------------------------- */

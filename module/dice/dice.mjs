@@ -1,4 +1,4 @@
-const { NumericTerm, OperatorTerm } = foundry.dice.terms;
+const { OperatorTerm } = foundry.dice.terms;
 
 /* -------------------------------------------- */
 /* D20 Roll                                     */
@@ -7,7 +7,7 @@ const { NumericTerm, OperatorTerm } = foundry.dice.terms;
 /**
  * Configuration data for a D20 roll.
  *
- * @typedef {object} D20RollConfiguration
+ * @typedef {object} DeprecatedD20RollConfiguration
  *
  * @property {string[]} [parts=[]]  The dice roll component parts, excluding the initial d20.
  * @property {object} [data={}]     Data that will be used when parsing this roll.
@@ -21,6 +21,8 @@ const { NumericTerm, OperatorTerm } = foundry.dice.terms;
  * @property {number|null} [fumble=1]  The value of the d20 result which represents a critical failure,
  *                                     `null` will prevent critical failures.
  * @property {number} [targetValue]    The value of the d20 result which should represent a successful roll.
+ * @property {string|false} [ammunition]  Ammunition to use with an attack roll.
+ * @property {string} [attackMode]     Default attack mode to use with an attack roll.
  * @property {string} [mastery]        Weapon mastery to use with an attack roll.
  *
  * ## Flags
@@ -51,88 +53,58 @@ const { NumericTerm, OperatorTerm } = foundry.dice.terms;
  * Holding SHIFT, ALT, or CTRL when the attack is rolled will "fast-forward".
  * This chooses the default options of a normal attack with no bonus, Advantage, or Disadvantage respectively
  *
- * @param {D20RollConfiguration} configuration  Configuration data for the D20 roll.
+ * @param {DeprecatedD20RollConfiguration} configuration  Configuration data for the D20 roll.
  * @returns {Promise<D20Roll|null>}             The evaluated D20Roll, or null if the workflow was cancelled.
  */
 export async function d20Roll({
   parts=[], data={}, event,
-  advantage, disadvantage, critical=20, fumble=1, targetValue, mastery,
+  advantage, disadvantage, critical=20, fumble=1, targetValue, attackMode, ammunition, mastery,
   elvenAccuracy, halflingLucky, reliableTalent,
   fastForward, ammunitionOptions, attackModes, chooseModifier=false, masteryOptions, template, title, dialogOptions,
   chatMessage=true, messageData={}, rollMode, flavor
 }={}) {
+  foundry.utils.logCompatibilityWarning(
+    "The `d20Roll` standalone method has been deprecated and replaced with `CONFIG.Dice.D20Roll.build`.",
+    { since: "DnD5e 4.1", until: "DnD5e 4.5" }
+  );
 
-  // Handle input arguments
-  const formula = ["1d20"].concat(parts).join(" + ");
-  const {advantageMode, isFF} = CONFIG.Dice.D20Roll.determineAdvantageMode({
-    advantage, disadvantage, fastForward, event
-  });
-  const defaultRollMode = rollMode || game.settings.get("core", "rollMode");
-  if ( chooseModifier && !isFF ) {
-    data.mod = "@mod";
-    if ( "abilityCheckBonus" in data ) data.abilityCheckBonus = "@abilityCheckBonus";
-  }
+  const rollConfig = {
+    event, ammunition, attackMode, mastery, elvenAccuracy, halflingLucky, reliableTalent,
+    rolls: [{
+      parts, data,
+      options: {
+        advantage, disadvantage,
+        criticalSuccess: critical,
+        criticalFailure: fumble,
+        target: targetValue
+      }
+    }]
+  };
 
-  // Construct the D20Roll instance
-  const roll = new CONFIG.Dice.D20Roll(formula, data, {
-    flavor: flavor || title,
-    advantageMode,
-    defaultRollMode,
-    rollMode,
-    critical,
-    fumble,
-    targetValue,
-    mastery,
-    elvenAccuracy,
-    halflingLucky,
-    reliableTalent
-  });
-
-  // Prompt a Dialog to further configure the D20Roll
-  if ( !isFF ) {
-    const configured = await roll.configureDialog({
-      title,
+  const dialogConfig = {
+    options: {
       ammunitionOptions,
       attackModes,
       chooseModifier,
-      defaultRollMode,
-      defaultAction: advantageMode,
-      defaultAbility: data?.item?.ability || data?.defaultAbility,
       masteryOptions,
-      template
-    }, dialogOptions);
-    if ( configured === null ) return null;
-  } else {
-    roll.options.ammunition ??= ammunitionOptions?.[0]?.value;
-    roll.options.rollMode ??= defaultRollMode;
-  }
+      ...(dialogOptions ?? {}),
+      title
+    }
+  };
+  if ( fastForward !== undefined ) dialogConfig.configure = !fastForward;
 
-  // If ammunition has a magical bonus, add it to the roll
-  const ammo = ammunitionOptions?.find(a => a.value === roll.options.ammunition);
-  if ( ammo?.item.system.magicAvailable && ammo.item.system.magicalBonus ) {
-    roll.terms.push(new OperatorTerm({ operator: "+" }), new NumericTerm({ number: ammo.item.system.magicalBonus }));
-    roll.resetFormula();
-  }
+  const messageConfig = {
+    create: chatMessage,
+    data: {
+      ...messageData,
+      flavor
+    },
+    rollMode: rollMode ?? game.settings.get("core", "rollMode")
+  };
 
-  // Evaluate the configured roll
-  await roll.evaluate({ allowInteractive: (roll.options.rollMode ?? defaultRollMode) !== CONST.DICE_ROLL_MODES.BLIND });
+  const rolls = await CONFIG.Dice.D20Roll.build(rollConfig, dialogConfig, messageConfig);
 
-  // Attach original message ID to the message
-  messageData = foundry.utils.expandObject(messageData);
-  const messageId = event?.target.closest("[data-message-id]")?.dataset.messageId;
-  if ( messageId ) foundry.utils.setProperty(messageData, "flags.dnd5e.originatingMessage", messageId);
-
-  // Store the ammunition used in the chat message
-  if ( ammo ) foundry.utils.setProperty(messageData, "flags.dnd5e.roll.ammunition", ammo.value);
-
-  // Set the attack mode
-  if ( roll.options.attackMode || attackModes?.length ) foundry.utils.setProperty(
-    messageData, "flags.dnd5e.roll.attackMode", roll.options.attackMode ?? attackModes[0].value
-  );
-
-  // Create a Chat Message
-  if ( roll && chatMessage ) await roll.toMessage(messageData);
-  return roll;
+  return rolls?.[0] ?? null;
 }
 
 /* -------------------------------------------- */
@@ -198,57 +170,55 @@ export async function damageRoll({
   fastForward, template, title, dialogOptions,
   chatMessage=true, messageData={}, rollMode, flavor
 }={}) {
+  foundry.utils.logCompatibilityWarning(
+    "The `damageRoll` standalone method has been deprecated and replaced with `CONFIG.Dice.DamageRoll.build`.",
+    { since: "DnD5e 4.0", until: "DnD5e 4.4" }
+  );
 
-  // Handle input arguments
-  const defaultRollMode = rollMode || game.settings.get("core", "rollMode");
+  const rollConfig = {
+    event,
+    critical: {
+      allow: allowCritical,
+      multiplier: criticalMultiplier,
+      multiplyNumeric: multiplyNumeric ?? game.settings.get("dnd5e", "criticalDamageModifiers"),
+      powerfulCritical: powerfulCritical ?? game.settings.get("dnd5e", "criticalDamageMaxDice")
+    },
+    rolls: rollConfigs.map(r => ({
+      data,
+      parts: r.parts,
+      options: {
+        isCritical: critical,
+        properties: r.properties,
+        type: r.type,
+        types: r.types
+      }
+    }))
+  };
+  if ( parts.length ) rollConfig.rolls.unshift({ data, parts });
+  if ( rollConfig.rolls[0] ) {
+    foundry.utils.setProperty(rollConfig.rolls[0], "options.critical.bonusDice", criticalBonusDice);
+    foundry.utils.setProperty(rollConfig.rolls[0], "options.critical.bonusDamage", criticalBonusDamage);
+  }
 
-  // If parts are still provided, treat it as the first roll
-  if ( parts.length ) rollConfigs.unshift({ parts });
-
-  const {isCritical, isFF} = _determineCriticalMode({critical, fastForward, event});
-  const rolls = [];
-  flavor ??= title;
-  multiplyNumeric ??= game.settings.get("dnd5e", "criticalDamageModifiers");
-  powerfulCritical ??= game.settings.get("dnd5e", "criticalDamageMaxDice");
-  critical = isFF ? isCritical : false;
-  for ( const [index, { parts, type, types, properties }] of rollConfigs.entries() ) {
-    const formula = parts.join(" + ");
-    const rollOptions = {
-      flavor, rollMode, critical, criticalMultiplier, multiplyNumeric, powerfulCritical, type, types, properties
-    };
-    if ( index === 0 ) {
-      rollOptions.criticalBonusDice = criticalBonusDice;
-      rollOptions.criticalBonusDamage = criticalBonusDamage;
+  const dialogConfig = {
+    options: {
+      ...(dialogOptions ?? {}),
+      title
     }
-    if ( formula ) rolls.push(new CONFIG.Dice.DamageRoll(formula, data, rollOptions));
-  }
+  };
+  if ( fastForward !== undefined ) dialogConfig.configure = !fastForward;
 
-  // Prompt a Dialog to further configure the DamageRoll
-  if ( !isFF ) {
-    const configured = await CONFIG.Dice.DamageRoll.configureDialog(rolls, {
-      title,
-      defaultRollMode: defaultRollMode,
-      defaultCritical: isCritical,
-      template,
-      allowCritical
-    }, dialogOptions);
-    if ( configured === null ) return null;
-  }
+  const messageConfig = {
+    create: chatMessage,
+    data: {
+      ...messageData,
+      flavor
+    },
+    rollMode: rollMode ?? game.settings.get("core", "rollMode")
+  };
 
-  // Evaluate the configured roll
-  for ( const roll of rolls ) {
-    const rollMode = rolls.at(-1).options.rollMode ?? defaultRollMode;
-    if ( !roll.options.type ) roll.options.type = roll.options.types?.[0];
-    await roll.evaluate({ allowInteractive: rollMode !== CONST.DICE_ROLL_MODES.BLIND });
-  }
+  const rolls = await CONFIG.Dice.DamageRoll.build(rollConfig, dialogConfig, messageConfig);
 
-  // Attach original message ID to the message
-  messageData = foundry.utils.expandObject(messageData);
-  const messageId = event?.target.closest("[data-message-id]")?.dataset.messageId;
-  if ( messageId ) foundry.utils.setProperty(messageData, "flags.dnd5e.originatingMessage", messageId);
-
-  // Create a Chat Message
-  if ( rolls?.length && chatMessage ) await CONFIG.Dice.DamageRoll.toMessage(rolls, messageData, { rollMode });
   if ( returnMultiple ) return rolls;
   if ( rolls?.length <= 1 ) return rolls[0];
 
@@ -267,20 +237,4 @@ export async function damageRoll({
   mergedRoll._evaluated = true;
   mergedRoll.resetFormula();
   return mergedRoll;
-}
-
-/* -------------------------------------------- */
-
-/**
- * Determines whether this d20 roll should be fast-forwarded, and whether advantage or disadvantage should be applied
- * @param {object} [config]
- * @param {Event} [config.event]          Event that triggered the roll.
- * @param {boolean} [config.critical]     Is this roll treated as a critical by default?
- * @param {boolean} [config.fastForward]  Should the roll dialog be skipped?
- * @returns {{isFF: boolean, isCritical: boolean}}  Whether the roll is fast-forward, and whether it is a critical hit
- */
-function _determineCriticalMode({event, critical=false, fastForward}={}) {
-  const isFF = fastForward ?? (event && (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey));
-  if ( event?.altKey ) critical = true;
-  return {isFF: !!isFF, isCritical: critical};
 }
